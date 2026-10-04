@@ -1,0 +1,23 @@
+name: Bug report
+description: Report a reproducible problem with the manager.
+body:
+  - type: markdown
+    attributes:
+      value: "Do not attach seeds, keys (including FVK/OVK), vaults, tokens or your application-data folder. Security vulnerabilities belong in private reporting; see SECURITY.md."
+  - type: input
+    id: version
+    attributes:
+      label: Manager version and Windows version
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps, expected result and actual result
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Sanitized error text or screenshot
+      description: Remove addresses, keys, tokens and IPs before posting.

@@ -1,0 +1,13 @@
+* text=auto
+*.go text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.json text eol=lf
+*.mjs text eol=lf
+*.ps1 text eol=crlf
+*.wasm binary
+*.syso binary
+*.exe binary
+# Preserve upstream license texts verbatim.
+view-tools/THIRD-PARTY-LICENSES/** -text -whitespace
+wallet-runtime/*LICENSE.txt -text -whitespace

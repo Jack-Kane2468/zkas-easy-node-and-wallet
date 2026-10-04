@@ -1,0 +1,61 @@
+{
+  "toolchain": "go1.26.8",
+  "target": "windows/amd64",
+  "modules": [
+    {
+      "Path": "github.com/Microsoft/go-winio",
+      "Version": "v0.6.2",
+      "Sum": "h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERoyfY="
+    },
+    {
+      "Path": "github.com/dchest/blake2b",
+      "Version": "v1.0.0",
+      "Sum": "h1:KK9LimVmE0MjRl9095XJmKqZ+iLxWATvlcpVFRtaw6s="
+    },
+    {
+      "Path": "github.com/lxn/walk",
+      "Version": "v0.0.0-20210112085537-c389da54e794",
+      "Sum": "h1:NVRJ0Uy0SOFcXSKLsS65OmI1sgCCfiDUPj+cwnH7GZw="
+    },
+    {
+      "Path": "github.com/lxn/win",
+      "Version": "v0.0.0-20210218163916-a377121e959e",
+      "Sum": "h1:H+t6A/QJMbhCSEH5rAuRxh+CtW96g0Or0Fxa9IKr4uc="
+    },
+    {
+      "Path": "golang.org/x/net",
+      "Version": "v0.59.0",
+      "Sum": "h1:5zfYln+w5XCxwrnMMJPufRgNoXEaGxl0wo5GqPXyues="
+    },
+    {
+      "Path": "golang.org/x/sys",
+      "Version": "v0.48.0",
+      "Sum": "h1:bbX/i/6MgT9BVLM9RT1thmxL04yeTAhbEz4SyadbXoo="
+    },
+    {
+      "Path": "golang.org/x/text",
+      "Version": "v0.42.0",
+      "Sum": "h1:JbOZXgfeCPU9gacVtYliJqOhD+zhrEqK4LfdpmlUZqI="
+    },
+    {
+      "Path": "google.golang.org/genproto/googleapis/rpc",
+      "Version": "v0.0.0-20260526163538-3dc84a4a5aaa",
+      "Sum": "h1:mZHHdPZl0dbGHCflZgAq/Q468DWVFcU2whhB2KAo8fk="
+    },
+    {
+      "Path": "google.golang.org/grpc",
+      "Version": "v1.83.2",
+      "Sum": "h1:EManeRomTObA0BU7I8vXgg/78uE5MJ9M8B39EX2WscU="
+    },
+    {
+      "Path": "google.golang.org/protobuf",
+      "Version": "v1.36.12",
+      "Sum": "h1:pJOKDDOyeXErUroCihFAd5LQuwXBSpVnKGrj5o/fwxc="
+    },
+    {
+      "Path": "gopkg.in/Knetic/govaluate.v3",
+      "Version": "v3.0.0",
+      "Sum": "h1:18mUyIt4ZlRlFZAAfVetz4/rzlJs9yhN+U02F4u1AOc="
+    }
+  ]
+}

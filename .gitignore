@@ -1,0 +1,29 @@
+# Local builds and downloaded runtime
+/dist/
+/artifacts/
+wallet-runtime/node.exe
+*.new
+*.tmp
+/view-tools/target/
+
+# Local credentials and application state must never enter this repository
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+vault.json
+config.json
+previous-config.json
+mining.json
+sharing.json
+appearance.json
+personal-wallets/
+logs/
+*.log
+wallets/
+*.db
+*.sqlite*
+# Public test vectors in internal/**/testdata and view-tools are intentional.
