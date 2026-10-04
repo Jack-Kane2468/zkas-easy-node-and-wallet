@@ -128,6 +128,8 @@ func main() {
 }
 
 type manager struct {
+	mainTabs        *walk.TabWidget
+	settingsPage    *walk.TabPage
 	managerUpdate   *walk.PushButton
 	managerPreviews *walk.CheckBox
 	viewToolsUI
@@ -190,9 +192,17 @@ func (m *manager) create() error {
 				Label{Text: "ZKas Node Manager", Font: Font{PointSize: 14, Bold: true}, EllipsisMode: EllipsisEnd}, HSpacer{},
 				PushButton{Text: "Compact / restore", OnClicked: m.compactWindow},
 			}},
-			TabWidget{Pages: []TabPage{
+			TabWidget{AssignTo: &m.mainTabs, Pages: []TabPage{
 				{Title: "Overview", Layout: VBox{MarginsZero: true}, Children: []Widget{
 					ScrollView{Layout: VBox{Spacing: 10}, Children: []Widget{
+						GroupBox{Title: "Setup", Layout: VBox{Spacing: 6}, Children: []Widget{
+							PushButton{Text: "Install / setup", Font: Font{Bold: true}, OnClicked: func() {
+								if err := m.mainTabs.SetCurrentIndex(m.mainTabs.Pages().Index(m.settingsPage)); err != nil {
+									walk.MsgBox(m.window, "Open setup", err.Error(), walk.MsgBoxIconError)
+								}
+							}},
+							Label{Text: "Open Settings to install components or review your setup."},
+						}},
 						Label{AssignTo: &m.status, Text: "Checking…", Font: Font{PointSize: 12, Bold: true}},
 						Label{AssignTo: &m.walletStatus, Text: "Wallet backend: checking…"},
 						Label{AssignTo: &m.version},
@@ -225,8 +235,11 @@ func (m *manager) create() error {
 				m.walletTab(),
 				m.miningTab(),
 				m.sharingTab(),
-				{Title: "Settings", Layout: VBox{MarginsZero: true}, Children: []Widget{
+				{AssignTo: &m.settingsPage, Title: "Settings", Layout: VBox{MarginsZero: true}, Children: []Widget{
 					ScrollView{Layout: VBox{Spacing: 8}, Children: []Widget{
+						Label{Text: "Install and configure", Font: Font{PointSize: 12, Bold: true}},
+						Label{Text: "The defaults suit most users. Review the options below, then install."},
+						PushButton{AssignTo: &m.install, Text: "Install / repair components", OnClicked: m.installAction},
 						Label{Text: "Stop services before changing settings."},
 						Label{Text: "Blockchain data folder"},
 						Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
@@ -254,7 +267,7 @@ func (m *manager) create() error {
 						}},
 						CheckBox{AssignTo: &m.auto, Text: "Start services when I sign in", Checked: m.cfg.AutoStart},
 						Label{Text: "Settings save when you install or start. Remote access is configured separately in Sharing."},
-						PushButton{AssignTo: &m.install, Text: "Install / repair components", OnClicked: m.installAction},
+
 						Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
 							PushButton{Text: "Open data", OnClicked: func() { m.open(m.cfg.DataDir) }},
 							PushButton{AssignTo: &m.removeButton, Text: "Uninstall…", OnClicked: m.remove},

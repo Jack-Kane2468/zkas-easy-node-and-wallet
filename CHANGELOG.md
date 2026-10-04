@@ -1,8 +1,14 @@
-# 0.8.4-preview
+# Changelog
+
+## 0.8.5-preview
+
+- Add an Overview installation/setup shortcut and bring installation controls to the top of Settings.
+- Simplify public documentation and remove handoff instructions.
+
+## 0.8.4-preview
 
 Adds verified in-app manager updates, preview channel selection, side-by-side version installation and startup recovery. Existing running services and user data are retained.
 
-# Changelog
 
 ## 0.8.3-preview
 

@@ -1,7 +1,3 @@
-# ZKas Node Manager 0.8.4-preview
-
-Overview → Check manager updates is now available. See [MANAGER-UPDATES.md](MANAGER-UPDATES.md).
-
 # ZKas Node Manager
 
 A Windows desktop manager for running a ZKas node, connecting applications, managing local wallets, and setting up solo mining or optional public access.
@@ -12,7 +8,7 @@ A Windows desktop manager for running a ZKas node, connecting applications, mana
 
 1. Open this repository's **Releases** page and download the **Windows-x64 ZIP** attached to a release. GitHub's **Code → Download ZIP** is source code, not the runnable application.
 2. Extract the **whole ZIP** to a folder. Keep `wallet-runtime` next to `ZKasNodeManager.exe`.
-3. Open `ZKasNodeManager.exe`. In **Settings**, choose **Install / repair components**, then use **Overview → Start services** if needed. Initial blockchain synchronization takes time.
+3. Open `ZKasNodeManager.exe`. Click **Overview → Install / setup** to open Settings, choose **Install / repair components**, then use **Overview → Start services** if needed. Initial blockchain synchronization takes time.
 
 No Go, Rust or separate Node.js installation is needed for a release ZIP. The node and optional mining bridge are downloaded during installation; an internet connection is required. The manager does not mine automatically.
 
@@ -22,7 +18,7 @@ Windows may warn because the EXE is unsigned. Verify the download source and che
 
 | Tab | Purpose |
 | --- | --- |
-| Overview | Start/stop services, see sync state, copy local API addresses and check node updates. |
+| Overview | Open installation/setup, start/stop services, see sync state, copy API addresses and check manager or node updates. |
 | Wallet | Create/import multiple wallets, receive/send, back up keys, view the selected wallet’s transaction history, and use independent FVK/OVK tools. |
 | Mining | Install or uninstall the bridge, connect miners through Stratum TCP 5555, and view bridge-reported workers/hashrate. |
 | Sharing | Configure incoming peers, HTTPS wallet API access, or personal/public Tor onion access. |
@@ -35,9 +31,9 @@ The built-in wallet stores secrets in a password-encrypted local vault. Keep you
 
 ## Updating
 
-Close the old manager window, extract the new complete release into another folder, and run its EXE. Existing node/wallet/mining/sharing processes and data are reused. Updating the installed Start-menu copy requires stopping services and using **Install / repair components**.
+Use **Overview → Check manager updates** to check for newer application releases. Preview releases require **Include preview releases** to be enabled. The manager displays release notes before confirmation, verifies the package and restarts its window. Existing data and running services are retained; the wallet vault locks.
 
-**Check updates** checks the upstream node release, not this manager's GitHub release. Bridge installation matches the installed node version. Manager upgrades are manual.
+**Check node updates** updates the upstream node separately. See [Manager updates](MANAGER-UPDATES.md) for details.
 
 ## Local connections and public access
 

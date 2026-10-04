@@ -19,7 +19,3 @@ The GUI signs using a checksum-pinned local runtime. Runtime hashes detect unexp
 The node, wallet daemon, Tor and mining bridge are separate upstream programs. Their releases and your PC's security remain part of the trust model. Node/bridge downloads use upstream release checksums; the project does not independently certify those binaries.
 
 Local APIs are loopback-bound by default. Sharing must be deliberately enabled. Public registration can consume disk/CPU; gateway limits do not replace external capacity management, monitoring and abuse protection. Tor identity reuse and HTTPS certificates are retained with user data on uninstall.
-
-## Maintainer release practice
-
-Run the checks in RELEASE-CHECKLIST.md, enable private vulnerability reporting and secret scanning where available, and review dependency alerts. Do not label the preview audited, production-certified or fully tested. Sign releases when a signing identity is available; never put signing secrets in repository files.

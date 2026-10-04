@@ -1,32 +1,21 @@
 # Manager updates
 
-Overview → Check manager updates checks releases from https://github.com/Jack-Kane2468/zkas-easy-node-and-wallet. Keep Include preview releases checked for the preview series. Check node updates remains a separate button.
+**Overview → Check manager updates** checks this project's published GitHub releases for a version newer than the running manager. Draft releases are ignored. **Include preview releases** allows prereleases and versions with a preview suffix.
 
-The manager displays the new version and release notes for confirmation, verifies the download and packaged files, then restarts its window. The wallet vault locks. Running node, wallet backend, mining and sharing processes are left running; existing settings and wallet/chain data remain in their existing locations.
+The new version and release notes appear before confirmation. The download and packaged files are verified before the manager window restarts. The wallet vault locks. Running node, wallet backend, mining and sharing processes continue; existing settings and wallet/chain data stay in their existing locations.
 
-New managers are installed into separate manager-versions folders under the existing application data folder. Old files are retained. If the new window fails to initialize, the helper attempts to reopen the previous executable. Startup recovery does not guarantee that every later feature will work.
+Each updated manager uses a separate application folder. Previous files are retained, and the updater attempts to reopen the previous manager if the new window fails to initialize. This recovery covers initial startup, not every later application operation. Installed shortcuts are refreshed after a successful update.
 
-## First upgrade from 0.8.3
+**Check node updates** is separate and checks the upstream node software.
 
-Extract the complete Windows ZIP into a new folder. Close the old manager window and run the new ZKasNodeManager.exe. Services can stay running when opening the new copy. Use this copy for the new button.
+## Manual updates
 
-To replace the old installed Start menu copy immediately, stop services, select Settings → Install / repair components in this version, then start services. This is a one-time manual upgrade because 0.8.3 lacks the updater. Later successful in-app updates refresh installed shortcuts automatically.
+Older versions without the update button require a complete Windows release download. Extract it into a new folder, close the previous manager window and run the new EXE. Opening the new window reuses the existing installation without stopping services.
 
-## Publishing
+A Windows Start menu shortcut may still point to an older installed copy. To replace that copy, stop services, open **Install / setup**, use **Install / repair components**, then start services again. This step is optional when running the extracted EXE directly.
 
-Update ManagerVersion in internal/node/node.go and the Windows manifest version. Run build.ps1 on Windows or use the included GitHub workflow. Complete the Windows smoke test below.
+## Download errors
 
-Use the matching release tag (for example v0.8.5-preview). Attach BOTH artifacts/ZKasNodeManager-Windows-x64-0.8.5-preview.zip and artifacts/SHA256SUMS.txt to that release, then publish. Do not rename the Windows ZIP. Drafts are ignored, and previews need the checkbox enabled.
+Missing release assets, interrupted downloads or checksum mismatches leave the current manager unchanged. GitHub rate limits or connectivity problems may require retrying later.
 
-The checksum file attached to the GitHub release hashes the Windows ZIP. The checksum file inside the ZIP hashes individual files. GitHub's automatic source archives are not runnable update packages.
-
-Checksums catch damage or mismatched files. They do not protect against compromise of the GitHub publisher account. These releases are unsigned and unaudited.
-
-## Windows smoke test before publishing
-
-- Open the new manager against an existing installation and confirm service status and wallet history.
-- Check for updates with no newer release available.
-- Test a reviewed higher-version preview with both matching assets attached.
-- Confirm the new window opens, the vault locks, services stay running, and installed shortcuts/autostart use the new version.
-- Confirm interrupted or invalid downloads leave the previous manager usable.
-- In a disposable Windows profile, test failed-startup recovery and uninstall after an update; retained wallet and chain data should remain.
+Checksums detect damaged or mismatched files; they are not publisher signatures. Release integrity also depends on the security of the project's GitHub account.
