@@ -1,3 +1,7 @@
+# 0.8.4-preview
+
+Adds verified in-app manager updates, preview channel selection, side-by-side version installation and startup recovery. Existing running services and user data are retained.
+
 # Changelog
 
 ## 0.8.3-preview

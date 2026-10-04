@@ -18,6 +18,17 @@ func shortcutPath() string {
 	return filepath.Join(os.Getenv("APPDATA"), "Microsoft", "Windows", "Start Menu", "Programs", "ZKas Node Manager.lnk")
 }
 func ensureInstalled(root string) error {
+	sourceNow, err := os.Executable()
+	p, active, activeErr := activeManager(root)
+	if activeErr != nil {
+		return activeErr
+	}
+	if err == nil && active != "" && strings.EqualFold(sourceNow, active) {
+		if _, err = walletRuntime(root); err != nil {
+			return err
+		}
+		return refreshManagerLinks(root, active, p.Version)
+	}
 	if e := stageWalletRuntime(root); e != nil {
 		return e
 	}
@@ -79,7 +90,11 @@ func setAutoStart(root string, enabled bool) error {
 	}
 	defer key.Close()
 	if enabled {
-		return key.SetStringValue("ZKasNodeManager", `"`+filepath.Join(root, "ZKasNodeManager.exe")+`" --autostart`)
+		exe, err := preferredManagerExe(root)
+		if err != nil {
+			return err
+		}
+		return key.SetStringValue("ZKasNodeManager", `"`+exe+`" --autostart`)
 	}
 	e = key.DeleteValue("ZKasNodeManager")
 	if e == registry.ErrNotExist {
@@ -90,6 +105,12 @@ func setAutoStart(root string, enabled bool) error {
 func validateData(root string, c node.Config) error {
 	if e := c.Validate(); e != nil {
 		return e
+	}
+	for _, reserved := range []string{"manager-versions", "manager-updates"} {
+		rel, err := filepath.Rel(filepath.Join(root, reserved), c.DataDir)
+		if err == nil && (rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(os.PathSeparator)))) {
+			return fmt.Errorf("Choose a data folder outside the manager's update folders")
+		}
 	}
 	rel, e := filepath.Rel(filepath.Join(root, "versions"), c.DataDir)
 	if e == nil && (rel == "." || (!strings.HasPrefix(rel, ".."+string(os.PathSeparator)) && rel != "..")) {
@@ -171,9 +192,13 @@ func uninstall(root string) error {
 	return cmd.Start()
 }
 func cleanup(root string) {
+	os.Remove(filepath.Join(root, "active-manager.json"))
 	for i := 0; i < 60; i++ {
 		time.Sleep(time.Second)
-		if e := os.Remove(filepath.Join(root, "ZKasNodeManager.exe")); e == nil || os.IsNotExist(e) {
+		e := os.Remove(filepath.Join(root, "ZKasNodeManager.exe"))
+		v := os.RemoveAll(filepath.Join(root, "manager-versions"))
+		u := os.RemoveAll(filepath.Join(root, "manager-updates"))
+		if (e == nil || os.IsNotExist(e)) && v == nil && u == nil {
 			break
 		}
 	}

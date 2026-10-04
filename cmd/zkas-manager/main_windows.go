@@ -24,6 +24,19 @@ func main() {
 	os.MkdirAll(root, 0700)
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
+		case "--manager-self-test":
+			if managerSelfTest(root) != nil {
+				os.Exit(1)
+			}
+			return
+		case "--activate-manager-update":
+			if len(os.Args) != 3 {
+				return
+			}
+			if err := activateManagerUpdate(root, os.Args[2]); err != nil {
+				walk.MsgBox(nil, "Manager update", err.Error(), walk.MsgBoxIconError)
+			}
+			return
 		case "--sharing-host":
 			os.Remove(serviceErrorFile(root, "sharing"))
 			if e := runSharingHost(root); e != nil {
@@ -85,6 +98,9 @@ func main() {
 			return
 		}
 	}
+	if len(os.Args) == 1 && redirectToUpdatedManager(root) {
+		return
+	}
 	lock, e := mutex(`Local\ZKasNodeUI-` + identity(root))
 	if e != nil {
 		walk.MsgBox(nil, "ZKas Node Manager", "A manager window is already open.", walk.MsgBoxIconInformation)
@@ -105,10 +121,15 @@ func main() {
 		ui.window.Synchronize(ui.remove)
 	}
 	ui.window.Synchronize(ui.compactWindow)
+	if len(os.Args) == 3 && os.Args[1] == "--manager-update-ready" {
+		ui.window.Synchronize(func() { markManagerReady(root, os.Args[2]) })
+	}
 	ui.window.Run()
 }
 
 type manager struct {
+	managerUpdate   *walk.PushButton
+	managerPreviews *walk.CheckBox
 	viewToolsUI
 	walletUI
 
@@ -180,7 +201,11 @@ func (m *manager) create() error {
 							PushButton{AssignTo: &m.stop, Text: "Stop services", OnClicked: func() {
 								m.action(func() error { m.setProgress("Waiting for clean shutdown…"); return stopNode(m.root) })
 							}},
-							PushButton{AssignTo: &m.update, Text: "Check updates", OnClicked: m.checkUpdate},
+							PushButton{AssignTo: &m.update, Text: "Check node updates", OnClicked: m.checkUpdate},
+						}},
+						Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
+							PushButton{AssignTo: &m.managerUpdate, Text: "Check manager updates", OnClicked: m.checkManagerUpdate},
+							CheckBox{AssignTo: &m.managerPreviews, Text: "Include preview releases", Checked: true},
 						}},
 						Label{Text: "Local connections", Font: Font{Bold: true}}, Label{AssignTo: &m.endpoints},
 						Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
@@ -398,6 +423,8 @@ func (m *manager) refresh(r hostReply, hostErr error, info node.NodeInfo, rpcErr
 	m.start.SetEnabled(!m.busy && installed && (!serviceActive(m.root, "node") || m.cfg.EnableWallet && !serviceActive(m.root, "wallet")))
 	m.stop.SetEnabled(!m.busy && active)
 	m.update.SetEnabled(!m.busy && installed)
+	m.managerUpdate.SetEnabled(!m.busy)
+	m.managerPreviews.SetEnabled(!m.busy)
 	m.removeButton.SetEnabled(!m.busy && installed)
 	logName := "console.log"
 	if m.logSelect.CurrentIndex() == 3 {

@@ -204,7 +204,10 @@ func startOne(root string, c node.Config, kind string) error {
 	if kind == "wallet" {
 		arg = "--wallet-host"
 	}
-	hostExe := filepath.Join(root, "ZKasNodeManager.exe")
+	hostExe, managerErr := preferredManagerExe(root)
+	if managerErr != nil {
+		return managerErr
+	}
 	if kind == "mining" {
 		mc, e := node.ReadMining(root)
 		if e != nil {

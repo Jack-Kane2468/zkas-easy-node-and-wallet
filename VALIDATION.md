@@ -1,3 +1,15 @@
+# Validation: 0.8.4-preview
+
+Portable Go tests passed, including version ordering, release channels, untrusted/missing assets, checksum mismatch, archive corruption, required runtime files, traversal, duplicate paths, Windows filenames and symlink rejection. Windows-target go vet passed. The Windows x64 GUI EXE and lifecycle test binary compiled.
+
+The six wallet runtime files are unchanged from 0.8.3 and match the compiled hash manifest. The final Windows ZIP is verified by the updater's own extraction code.
+
+Native Windows updater restart/recovery, shortcuts and uninstall were not executed here. Compiled Windows tests were not executed. Live wallet/payments/mining were not retested. Vulnerability scanning was not repeated for this change. Complete the smoke test in MANAGER-UPDATES.md before publishing.
+
+No files were pushed to GitHub or releases published.
+
+## Previous validation record
+
 # Validation: 0.8.3-preview
 
 The portable Go regression suite passed, including new selected-wallet history tests for API-token isolation, page offsets, exact amounts/memos, and rejecting missing/loading/mismatched wallet profiles before requesting history. Windows-target go vet and the Windows x64 GUI build passed.

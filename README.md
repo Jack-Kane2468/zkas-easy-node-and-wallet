@@ -1,3 +1,7 @@
+# ZKas Node Manager 0.8.4-preview
+
+Overview → Check manager updates is now available. See [MANAGER-UPDATES.md](MANAGER-UPDATES.md).
+
 # ZKas Node Manager
 
 A Windows desktop manager for running a ZKas node, connecting applications, managing local wallets, and setting up solo mining or optional public access.
