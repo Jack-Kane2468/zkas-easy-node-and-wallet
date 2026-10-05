@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.7-preview
+
+- Add a colored log viewer with bottom-following, reading-position retention, Latest and Pause controls.
+- Increase the recent-log window to 128 KiB.
+
+## 0.8.6-preview
+
+- Hide Overview setup controls after installation; retain repair in Settings.
+
 ## 0.8.5-preview
 
 - Add an Overview installation/setup shortcut and bring installation controls to the top of Settings.

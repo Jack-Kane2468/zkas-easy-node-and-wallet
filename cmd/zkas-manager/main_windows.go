@@ -128,6 +128,9 @@ func main() {
 }
 
 type manager struct {
+	setupSection    *walk.GroupBox
+	logContainer    *walk.Composite
+	logPause        *walk.CheckBox
 	mainTabs        *walk.TabWidget
 	settingsPage    *walk.TabPage
 	managerUpdate   *walk.PushButton
@@ -158,7 +161,7 @@ type manager struct {
 	enableWS, auto                                       *walk.CheckBox
 	mode                                                 *walk.ComboBox
 	status, version, progress, endpoints                 *walk.Label
-	logs                                                 *walk.TextEdit
+	logs                                                 *logView
 	install, start, stop, update, browse, removeButton   *walk.PushButton
 	busy                                                 bool
 	closed                                               atomic.Bool
@@ -195,7 +198,7 @@ func (m *manager) create() error {
 			TabWidget{AssignTo: &m.mainTabs, Pages: []TabPage{
 				{Title: "Overview", Layout: VBox{MarginsZero: true}, Children: []Widget{
 					ScrollView{Layout: VBox{Spacing: 10}, Children: []Widget{
-						GroupBox{Title: "Setup", Layout: VBox{Spacing: 6}, Children: []Widget{
+						GroupBox{AssignTo: &m.setupSection, Visible: m.cfg.Version == "", Title: "Setup", Layout: VBox{Spacing: 6}, Children: []Widget{
 							PushButton{Text: "Install / setup", Font: Font{Bold: true}, OnClicked: func() {
 								if err := m.mainTabs.SetCurrentIndex(m.mainTabs.Pages().Index(m.settingsPage)); err != nil {
 									walk.MsgBox(m.window, "Open setup", err.Error(), walk.MsgBoxIconError)
@@ -276,10 +279,13 @@ func (m *manager) create() error {
 				}},
 				{Title: "Logs", Layout: VBox{}, Children: []Widget{
 					Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
-						ComboBox{AssignTo: &m.logSelect, Model: []string{"Node log", "Wallet backend log", "Mining bridge log", "Tor log"}, CurrentIndex: 0},
+						ComboBox{AssignTo: &m.logSelect, Model: []string{"Node log", "Wallet backend log", "Mining bridge log", "Tor log"}, CurrentIndex: 0, OnCurrentIndexChanged: m.refreshLogs},
+						PushButton{Text: "Latest", OnClicked: m.latestLog},
+						CheckBox{AssignTo: &m.logPause, Text: "Pause"},
 						PushButton{Text: "Open log folder", OnClicked: func() { m.open(filepath.Join(m.root, "logs")) }},
 					}},
-					TextEdit{AssignTo: &m.logs, ReadOnly: true, VScroll: true, HScroll: true, Font: Font{Family: "Consolas", PointSize: 9}},
+					Label{Text: "Scroll up to hold your place. Latest resumes following. Colors: red errors, amber warnings, cyan sync.", EllipsisMode: EllipsisEnd},
+					Composite{AssignTo: &m.logContainer, Layout: VBox{MarginsZero: true, Spacing: 0}, Children: []Widget{HSpacer{}, VSpacer{}}, MinSize: Size{Width: 100, Height: 120}, StretchFactor: 1},
 				}},
 			}},
 			Label{AssignTo: &m.progress, Text: "Connected to your existing installation.", EllipsisMode: EllipsisEnd},
@@ -287,6 +293,11 @@ func (m *manager) create() error {
 	if e != nil {
 		return e
 	}
+	m.logs, e = newLogView(m.logContainer)
+	if e != nil {
+		return e
+	}
+	m.refreshLogs()
 	m.window.Closing().Attach(func(canceled *bool, reason walk.CloseReason) {
 		if m.busy {
 			*canceled = true
@@ -403,6 +414,7 @@ func (m *manager) endpointText() string {
 func (m *manager) setProgress(s string) { m.onUI(func() { m.progress.SetText(s) }) }
 func (m *manager) refresh(r hostReply, hostErr error, info node.NodeInfo, rpcErr error) {
 	installed := m.cfg.Version != ""
+	m.setupSection.SetVisible(!installed)
 	running := hostErr == nil && r.Running
 	active := running || hostActive(m.root)
 	state := "Not installed"
@@ -439,32 +451,7 @@ func (m *manager) refresh(r hostReply, hostErr error, info node.NodeInfo, rpcErr
 	m.managerUpdate.SetEnabled(!m.busy)
 	m.managerPreviews.SetEnabled(!m.busy)
 	m.removeButton.SetEnabled(!m.busy && installed)
-	logName := "console.log"
-	if m.logSelect.CurrentIndex() == 3 {
-		logName = "tor-console.log"
-	}
-	if m.logSelect.CurrentIndex() == 2 {
-		logName = "mining-console.log"
-	}
-	if m.logSelect.CurrentIndex() == 1 {
-		logName = "wallet-console.log"
-	}
-	path := filepath.Join(m.root, "logs", logName)
-	if f, e := os.Open(path); e == nil {
-		st, _ := f.Stat()
-		if st != nil {
-			offset := st.Size() - 16000
-			if offset < 0 {
-				offset = 0
-			}
-			f.Seek(offset, 0)
-			b := make([]byte, 16000)
-			n, _ := f.Read(b)
-			m.logs.SetText(strings.ReplaceAll(strings.ReplaceAll(string(b[:n]), "\r", ""), "\n", "\r\n"))
-			m.logs.SetTextSelection(len(m.logs.Text()), len(m.logs.Text()))
-		}
-		f.Close()
-	}
+	m.refreshLogs()
 }
 func (m *manager) action(work func() error) {
 	if m.busy {

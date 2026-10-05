@@ -23,7 +23,7 @@ Windows may warn because the EXE is unsigned. Verify the download source and che
 | Mining | Install or uninstall the bridge, connect miners through Stratum TCP 5555, and view bridge-reported workers/hashrate. |
 | Sharing | Configure incoming peers, HTTPS wallet API access, or personal/public Tor onion access. |
 | Settings | Node storage and ports, startup options, installation and uninstall. |
-| Logs | Inspect node, wallet backend, bridge and Tor logs locally. |
+| Logs | Read colored service logs, follow the newest entries, or pause to inspect older output. |
 
 Closing the window leaves services running. These are background processes owned by your Windows user, not Windows Service Control Manager services. Autostart runs at sign-in.
 
@@ -40,6 +40,8 @@ Use **Overview → Check manager updates** to check for newer application releas
 Local-only use is the default. Copy the API addresses shown in Overview instead of guessing ports. Sharing is optional; a working local node does not need router forwarding. Public API hosting consumes resources and exposes the operator's network; the gateway's concurrency/body limits are not a full abuse-prevention system. See [Sharing](SHARING.md).
 
 ## Guides
+
+- [Logs](LOGS.md) — following, pausing and reading service output.
 
 - [Wallets](WALLETS.md) — account numbers, backup, receive/send and exports.
 - [Wallet tools](WALLET-TOOLS.md) — independent FVK/OVK scans and their limits.

@@ -1,12 +1,7 @@
 # Validation
 
-## 0.8.5-preview
+## 0.8.7-preview
 
-- Portable Go tests passed.
-- Windows-target static analysis and the Windows x64 GUI build passed.
-- The complete release archive passed checksum verification and the updater's extraction checks.
-- The six bundled wallet runtime files match their pinned hashes and are unchanged from 0.8.4.
+Portable tests cover log line normalization, severity coloring, timestamp formatting and escaping of RTF control characters and Unicode. Windows-target static analysis and the Windows x64 GUI build passed. The complete release passed the updater's archive validation. Bundled wallet runtime files are unchanged and match their pinned hashes.
 
-The Install / setup button and revised Settings layout have not been exercised on Windows. Native updater restart/recovery, live payments, full-chain viewing-key scans, mining and remote sharing were not retested for this release. No new vulnerability scan or independent security audit was performed.
-
-Cross-compilation and automated tests do not establish end-to-end behavior on a Windows installation. This remains an unsigned community preview.
+Native Windows scrolling, selection, resizing, keyboard behavior and colored rendering were not visually exercised in this build environment. Live payments, mining, sharing and updater restart/recovery were not retested. No new vulnerability scan or independent security audit was performed. This remains an unsigned community preview.
