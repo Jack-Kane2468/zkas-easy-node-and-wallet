@@ -208,6 +208,7 @@ func (m *manager) kaspaWalletTab() TabPage {
 					m.copyText("Kaspa address", m.kwAddressModel.rows[i].Address)
 				}
 			}),
+			button("exportkey", "Export selected receiving key…", m.kwExportReceivingKey),
 			TextEdit{AssignTo: &m.kwAddressDetails, ReadOnly: true, VScroll: true, MinSize: Size{Width: 240, Height: 95}, Text: "Select an address to see its UTXOs."},
 		}},
 		button("history", "Show transaction history", func() {
@@ -261,6 +262,9 @@ func (m *manager) kwControls() {
 			enabled = enabled && m.kwState.Open && m.kwAddressOffset > 0
 		case "next":
 			enabled = enabled && m.kwState.Open && m.kwAddressOffset+len(m.kwAddressModel.rows) < m.kwAddressTotal
+		case "exportkey":
+			i := m.kwAddressTable.CurrentIndex()
+			enabled = enabled && m.kwState.Open && i >= 0 && i < len(m.kwAddressModel.rows) && m.kwAddressModel.rows[i].Branch == "Receive"
 		case "copyselected":
 			enabled = enabled && m.kwState.Open && m.kwAddressTable.CurrentIndex() >= 0
 		}
@@ -478,6 +482,7 @@ func (m *manager) kwCreate(importing bool) {
 		q["index"] = index
 		q["passphrase"] = v[3]
 		entry.Passphrase = v[3]
+		entry.Recovery = v[1]
 	}
 	// Persist the internal credential before the SDK can create a wallet file.
 	m.kwVault.Wallets = append(m.kwVault.Wallets, entry)
@@ -510,6 +515,10 @@ func (m *manager) kwCreate(importing bool) {
 			return errors.New("Wallet creation canceled; no new wallet was saved")
 		}
 		q["secret"] = generated.Phrase
+		m.kwVault.Find(name).Recovery = generated.Phrase
+		if e := kaspavault.Save(m.root, m.kwVaultPassword, m.kwVault); e != nil {
+			return e
+		}
 		var s kaspaWalletState
 		if e := p.call(q, &s); e != nil {
 			return e

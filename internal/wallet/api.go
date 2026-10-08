@@ -63,21 +63,22 @@ func (c Client) Watch(ctx context.Context, fvk string) error {
 }
 
 type Status struct {
-	Behind         uint64 `json:"blocks_behind"`
-	Warming        bool   `json:"warming"`
-	Error          string `json:"error"`
-	NodeConnected  bool   `json:"node_connected"`
-	HasWallet      bool   `json:"has_wallet"`
-	Address        string `json:"address"`
-	Synced         bool   `json:"synced"`
-	SpendReady     bool   `json:"spend_ready"`
-	Loading        bool   `json:"loading"`
-	MissingHistory bool   `json:"missing_history"`
-	Balance        string `json:"balance_fc"`
-	Spendable      string `json:"spendable_fc"`
-	Maturing       string `json:"maturing_fc"`
-	Scanned        uint64 `json:"scanned_blocks"`
-	Chain          uint64 `json:"chain_len"`
+	NoteCount      *uint64 `json:"note_count"`
+	Behind         uint64  `json:"blocks_behind"`
+	Warming        bool    `json:"warming"`
+	Error          string  `json:"error"`
+	NodeConnected  bool    `json:"node_connected"`
+	HasWallet      bool    `json:"has_wallet"`
+	Address        string  `json:"address"`
+	Synced         bool    `json:"synced"`
+	SpendReady     bool    `json:"spend_ready"`
+	Loading        bool    `json:"loading"`
+	MissingHistory bool    `json:"missing_history"`
+	Balance        string  `json:"balance_fc"`
+	Spendable      string  `json:"spendable_fc"`
+	Maturing       string  `json:"maturing_fc"`
+	Scanned        uint64  `json:"scanned_blocks"`
+	Chain          uint64  `json:"chain_len"`
 }
 
 func (c Client) Status(ctx context.Context) (Status, error) {
@@ -99,7 +100,11 @@ func (s Status) Display() string {
 	if s.MissingHistory {
 		state = "History incomplete — displayed balance may be too low"
 	}
-	return fmt.Sprintf("%s\r\nBalance: %s ZKAS   Available to send: %s ZKAS\r\nMaturing: %s ZKAS   Scan: %d / %d", state, s.Balance, s.Spendable, s.Maturing, s.Scanned, s.Chain)
+	notes := "Not reported"
+	if s.NoteCount != nil {
+		notes = strconv.FormatUint(*s.NoteCount, 10)
+	}
+	return fmt.Sprintf("%s\r\nNotes: %s\r\nBalance: %s ZKAS   Available to send: %s ZKAS\r\nMaturing: %s ZKAS   Scan: %d / %d", state, notes, s.Balance, s.Spendable, s.Maturing, s.Scanned, s.Chain)
 }
 
 type Prepared struct {

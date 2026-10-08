@@ -1,3 +1,9 @@
+# 0.9.6-preview
+
+- ZKas wallet displays the backend’s note count alongside balance and scan progress.
+- Change the ZKas vault password from the bottom of My wallets.
+- Export the private key for a selected Kaspa receiving address after vault-password confirmation. The derived key must reproduce the selected address before it is shown.
+
 # 0.9.5-preview
 
 - Indexed Kaspa receiving/change addresses with address-specific unspent totals, UTXO counts and output details.

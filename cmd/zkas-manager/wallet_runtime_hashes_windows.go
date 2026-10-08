@@ -9,6 +9,6 @@ var walletRuntimeHashes = map[string]string{
 	"view-tools.wasm":      "cfda8457dfd78c149f4378d1430b6601f627c7e7e8e24731582e11d6d05b326c",
 	"kaspa.cjs":            "6d92cb305d0cc2eb26de9e305b7f7a8c17daa130ad478f0b340b50490557dbcf",
 	"kaspa_bg.wasm":        "c9657568610ae1d305bc2e1cf85208ceba0d1a7893c4057b38caa8add2ffb0f5",
-	"kaspa-wallet.cjs":     "7a7164eb0b7dda4c2e3855bfa1d32f15221bf33315aac4434929dffbdb504864",
+	"kaspa-wallet.cjs":     "8b05601830b19287daa5a943fdde794eadadae7554cec8b8ddf11436392ff79c",
 	"kaspa-addresses.cjs":  "968c5e77ff0ac05a364342a52eec7742ee45e6e2f0275fb4eacb30281e071a50",
 }

@@ -20,11 +20,25 @@ async function q(x){if(died)throw Error('Worker stopped');let timer;const r=awai
  assert.equal(r.accounts[0].address,address);assert.equal(r.connected,false);assert.equal(r.ready,false);
  let page=await q({op:'addresses'});assert.equal(page.total,2);assert.equal(page.rows[0].index,0);assert.equal(page.rows[0].address,address);assert.equal(page.rows[0].known,false);assert.equal(page.rows[1].branch,'Change');
  const filename=r.filename;
+ const sdk=require('../wallet-runtime/kaspa.cjs');
+ async function checkKey(state,index,address,secret=phrase,passphrase=''){
+  const exported=await q({op:'export_key',account:state.selected,index,address,secret,passphrase});
+  assert.equal(exported.address,address);assert.equal(exported.index,index);
+  const key=new sdk.PrivateKey(exported.privateKey),actual=key.toAddress('mainnet');
+  assert.equal(actual.toString(),address);actual.free();key.free();exported.privateKey='';
+ }
+ await checkKey(r,0,address);
+ await assert.rejects(q({op:'export_key',account:r.selected,index:0,address,secret:'invalid recovery'}));
+ await assert.rejects(q({op:'export_key',account:r.selected,index:1,address,secret:phrase}));
+ await assert.rejects(q({op:'export_key',account:'wrong-account',index:0,address,secret:phrase}));
+
  assert(!(fs.readFileSync(path.join(folder,filename+'.wallet')).includes(phrase)));
  await q({op:'lock'});
  await assert.rejects(q({op:'open',filename,password:'incorrect-password'}));
  r=await q({op:'open',filename,password});assert.equal(r.accounts[0].address,address);
  r=await q({op:'address'});const second=r.accounts[0].address;assert.notEqual(second,address);
+ await checkKey(r,1,second);
+ await assert.rejects(q({op:'export_key',account:r.selected,index:1,address,secret:phrase}));
  page=await q({op:'addresses'});assert.equal(page.total,3);assert.equal(page.rows[0].address,address);assert.equal(page.rows[1].address,second);assert.equal(page.rows[1].index,1);
  await q({op:'lock'});r=await q({op:'open',filename,password});assert.equal(r.accounts[0].address,second);
  const rawFile=fs.readFileSync(path.join(folder,filename+'.wallet'));
@@ -36,16 +50,19 @@ async function q(x){if(died)throw Error('Worker stopped');let timer;const r=awai
  await q({op:'history'});
  await assert.rejects(q({op:'estimate',address,amount:'1'}),/synced local Kaspa node/);
  await assert.rejects(q({op:'send',token:'invented',password}),/synced local Kaspa node/);
- r=await q({op:'create',password,secret:phrase,title:'Account 1',index:1});assert.notEqual(r.accounts[0].address,address);
+ r=await q({op:'create',password,secret:phrase,title:'Account 1',index:1});assert.notEqual(r.accounts[0].address,address);await checkKey(r,0,r.accounts[0].address);
  for(let i=0;i<50;i++)r=await q({op:'address'});
  page=await q({op:'addresses',offset:50});assert.equal(page.total,52);assert.equal(page.rows.length,2);assert.equal(page.rows[0].index,50);assert.equal(page.rows[0].address,r.accounts[0].address);assert.equal(page.rows[1].branch,'Change');
- r=await q({op:'create',password,secret:'0'.repeat(63)+'1',title:'Private key test',index:0});assert(r.accounts[0].address.startsWith('kaspa:'));
+ r=await q({op:'create',password,secret:'0'.repeat(63)+'1',title:'Private key test',index:0});assert(r.accounts[0].address.startsWith('kaspa:'));await checkKey(r,0,r.accounts[0].address,'0'.repeat(63)+'1');
  page=await q({op:'addresses'});assert.equal(page.total,1);assert.equal(page.rows[0].address,r.accounts[0].address);
  await assert.rejects(q({op:'create',password,secret:'not a phrase',title:'Invalid',index:0}));
  await assert.rejects(q({op:'create',filename:'../escape',password,secret:phrase,title:'Invalid filename',index:0}));
  const before=fs.readFileSync(path.join(folder,filename+'.wallet'));
  await assert.rejects(q({op:'create',filename,password,secret:phrase,title:'Collision',index:0}));
  assert.deepEqual(fs.readFileSync(path.join(folder,filename+'.wallet')),before);
+ r=await q({op:'create',password,secret:phrase,passphrase:'public test passphrase',title:'Passphrase test',index:2});
+ await checkKey(r,0,r.accounts[0].address,phrase,'public test passphrase');
+ await assert.rejects(q({op:'export_key',account:r.selected,index:0,address:r.accounts[0].address,secret:phrase,passphrase:'wrong'}));
  const list=await q({op:'list'});assert(list.wallets.length>=4);
- console.log('PASS: seed/private-key import, account derivation, encrypted storage, wrong-password rejection, address persistence, backup restoration, history, offline send guards.');
+ console.log('PASS: seed/private-key import, account derivation, encrypted storage, wrong-password rejection, address persistence, backup restoration, history, offline send guards, receiving-key exports and address matching.');
 })().catch(e=>{console.error(e.message);process.exitCode=1}).finally(()=>{p.stdin.end();p.kill();p.on('exit',()=>fs.rmSync(folder,{recursive:true,force:true}))});

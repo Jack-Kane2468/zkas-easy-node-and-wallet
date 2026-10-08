@@ -67,6 +67,8 @@ Wallet mode keeps shielded note history without enabling full archive mode. Node
 
 ## Wallet features
 
+ZKas displays the current note count returned by its wallet backend. **Change ZKas vault password** is at the bottom of My wallets. Kaspa receiving-address keys can be exported from the address table after password confirmation.
+
 Kaspa has a separate wallet vault, encrypted backup/restore, indexed receiving and change addresses, per-address UTXOs, password changes and wallet removal. See [Kaspa wallet details](KASPA.md).
 
 ZKas sends accept an optional encrypted memo of up to 512 UTF-8 bytes. **Consolidate notes** prepares one self-payment round of 3–38 spendable notes, displays its fee and requires confirmation before local signing. Resulting notes must mature again; no further round is automatically submitted. The original spending keys remain on the PC.

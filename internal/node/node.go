@@ -22,7 +22,7 @@ import (
 
 const Repository = "https://github.com/firecash/zkas-rusty"
 const LatestAPI = "https://api.github.com/repos/firecash/zkas-rusty/releases/latest"
-const ManagerVersion = "0.9.5-preview"
+const ManagerVersion = "0.9.6-preview"
 
 type Config struct {
 	PublicP2P bool `json:"publicP2P,omitempty"`

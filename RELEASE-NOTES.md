@@ -1,11 +1,9 @@
-# 0.9.1-preview — Mining modes and Kaspa control states
+# 0.9.6-preview — Wallet notes and key controls
 
-- Shared mining now offers Merged, Kaspa-only and ZKas-only. ZKas-only does not require a Kaspa node or Kaspa address.
-- Kaspa setup disappears after installation. Start/Stop reflect the running state; repair and conflicting actions disable while unavailable.
-- Install/start/stop/uninstall operations immediately disable conflicting controls and report a specific completion message.
-- Node status uses color and an activity indicator, with PID, version, address-index status, last reported sync message and check time. The activity bar is not a claimed completion percentage.
-- Mining controls follow the selected mode, installation, required node sync and payout fields. Irrelevant payout fields hide. Dashboard access requires a running bridge.
-- A Kaspa Wallet tab installs and opens the checksum-verified upstream wallet console, with local-connection instructions and wallet commands. This is terminal-based; graphical create/import/send screens like the ZKas wallet are not implemented.
-- Existing chain data, running nodes, ZKas wallets and bounded log rendering are preserved. No reinstall is required merely to use the new manager controls.
+- ZKas wallet status shows the backend's note count. An unavailable count is labelled rather than shown as zero.
+- Change the ZKas vault password using the button at the bottom of the wallet tab.
+- Export the private key for a selected Kaspa receiving address after confirming the vault password. Each key is checked against that address before display.
 
-Windows cross-build/static checks and portable tests passed. Native Windows GUI interactions and live mining/payments have not been tested in this environment. Close the upstream wallet console before uninstalling its program files.
+For an existing Kaspa wallet without a recovery secret saved in its vault, key export requests the original phrase or private key once and verifies it before saving it encrypted. An individual receiving key is not a backup of the whole wallet.
+
+Consolidation and payment behavior are unchanged. Portable and offline wallet tests, Windows cross-compilation and static checks passed. Native Windows UI and live transactions have not been tested in this environment.

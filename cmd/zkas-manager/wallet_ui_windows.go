@@ -58,6 +58,7 @@ func (m *manager) personalWalletPage() TabPage {
 		Label{Text: "Backup and viewing keys", Font: Font{Bold: true}},
 		Composite{Layout: HBox{}, Children: []Widget{button("Show recovery backup…", m.showRecovery), button("Export FVK…", func() { m.exportViewKey(false) }), button("Export OVK…", func() { m.exportViewKey(true) })}},
 		TextLabel{Text: "FVK: view incoming funds and recoverable outgoing history, without spending. OVK: outgoing viewing key; it cannot show your full balance or authorize payments. Use Wallet tools for independent viewing-key scans.", MinSize: Size{Width: 240}},
+		button("Change ZKas vault password…", m.changeZKasVaultPassword),
 	}}}}
 }
 
@@ -705,4 +706,30 @@ func receiptText(w *wallet.Wallet) string {
 		}
 	}
 	return text
+}
+
+func (m *manager) changeZKasVaultPassword() {
+	if !m.requireVault() {
+		return
+	}
+	values, ok := m.inputDialog("Change ZKas vault password", "Use at least 12 characters. This changes the current vault password; previously copied vault backups still use their original password.", []inputField{{"Current vault password", "", true}, {"New vault password", "", true}, {"Repeat new password", "", true}})
+	if !ok {
+		return
+	}
+	if values[1] != values[2] || utf8.RuneCountInString(values[1]) < 12 {
+		clear(values)
+		m.walletError(fmt.Errorf("Enter matching new passwords of at least 12 characters"))
+		return
+	}
+	m.chainAction("Changing ZKas vault password", "ZKas vault password changed.", func() error {
+		defer clear(values)
+		if _, e := wallet.Load(m.root, values[0]); e != nil {
+			return e
+		}
+		if e := wallet.Save(m.root, values[1], m.vault); e != nil {
+			return e
+		}
+		m.onUI(func() { m.vaultPassword = values[1] })
+		return nil
+	})
 }

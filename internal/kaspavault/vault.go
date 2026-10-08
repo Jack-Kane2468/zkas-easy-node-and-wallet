@@ -18,6 +18,7 @@ import (
 type Wallet struct {
 	Receipts                       []string
 	ID, Name, Password, Passphrase string
+	Recovery                       string `json:"recovery,omitempty"`
 	Backup                         []byte
 }
 type Vault struct{ Wallets []Wallet }
