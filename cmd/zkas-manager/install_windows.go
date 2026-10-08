@@ -9,6 +9,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"zkas-node-manager/internal/chains"
 	"zkas-node-manager/internal/node"
 )
 
@@ -103,13 +104,20 @@ func setAutoStart(root string, enabled bool) error {
 	return e
 }
 func validateData(root string, c node.Config) error {
+	if kc, e := chains.Read(root); e != nil {
+		return e
+	} else if kc.DataPath != "" {
+		if e := validateKaspaData(root, kc.DataPath, c.DataDir); e != nil {
+			return e
+		}
+	}
 	if e := c.Validate(); e != nil {
 		return e
 	}
-	for _, reserved := range []string{"manager-versions", "manager-updates"} {
+	for _, reserved := range []string{"manager-versions", "service-hosts", "manager-updates", "components", "kaspa-data", "kaspa-access", "kaspa-wallets", "kaspa-vault", "personal-wallets", "wallet-runtime", "wallets", "sharing"} {
 		rel, err := filepath.Rel(filepath.Join(root, reserved), c.DataDir)
 		if err == nil && (rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(os.PathSeparator)))) {
-			return fmt.Errorf("Choose a data folder outside the manager's update folders")
+			return fmt.Errorf("Choose a ZKas data folder outside manager program folders and the Kaspa database")
 		}
 	}
 	rel, e := filepath.Rel(filepath.Join(root, "versions"), c.DataDir)
@@ -122,6 +130,9 @@ func validateData(root string, c node.Config) error {
 	return nil
 }
 func uninstall(root string) error {
+	if e := uninstallChains(root, false); e != nil {
+		return e
+	}
 	if e := stopNode(root); e != nil {
 		return e
 	}
@@ -160,6 +171,9 @@ func uninstall(root string) error {
 		return e
 	}
 	if e = os.RemoveAll(filepath.Join(root, "versions")); e != nil {
+		return e
+	}
+	if e = os.RemoveAll(filepath.Join(root, "service-hosts")); e != nil {
 		return e
 	}
 	os.Remove(shortcutPath())

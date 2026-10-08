@@ -1,0 +1,10 @@
+'use strict';
+const assert=require('assert/strict');
+const {groupUtxos}=require('../wallet-runtime/kaspa-addresses.cjs');
+const rows=[{branch:'Receive',index:0,address:'kaspa:address0'},{branch:'Receive',index:1,address:'kaspa:address1'},{branch:'Change',index:0,address:'kaspa:change0'}];
+const entry=(address,amount,index)=>({address,amount:BigInt(amount),outpoint:{transactionId:'a'.repeat(64),index},blockDaaScore:123n,isCoinbase:false});
+const grouped=groupUtxos(rows,[entry('kaspa:address0','9007199254740993',0),entry('kaspa:address0','7',1),entry('kaspa:change0','42',2)]);
+assert.equal(grouped[0].amount,'9007199254741000');assert.equal(grouped[0].count,2);assert.equal(grouped[1].amount,'0');assert.equal(grouped[1].known,true);assert.equal(grouped[2].amount,'42');assert.equal(grouped[2].utxos[0].index,2);
+assert.throws(()=>groupUtxos(rows,[entry('kaspa:unknown','1',0)]),/unrequested address/);
+const many=groupUtxos(rows,Array.from({length:105},(_,i)=>entry('kaspa:address1',1,i)));assert.equal(many[1].utxos.length,100);assert.equal(many[1].count,105);assert.equal(many[1].amount,'105');
+console.log('PASS: address-specific UTXO grouping, exact integers, empty addresses, change outputs, mismatched-address rejection, bounded detail list.');

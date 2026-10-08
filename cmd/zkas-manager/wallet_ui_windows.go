@@ -53,6 +53,7 @@ func (m *manager) personalWalletPage() TabPage {
 		TextLabel{Text: "Extra receiving addresses (your canary addresses) all receive into this wallet. They are not separate wallets or theft alarms.", MinSize: Size{Width: 240}},
 		TextLabel{AssignTo: &m.walletBalance, Text: "Unlock and select a wallet to view its balance.", MinSize: Size{Width: 240}},
 		Composite{Layout: HBox{}, Children: []Widget{button("Refresh / sync", m.syncWallet), button("Show history", m.showWalletHistory), button("Send ZKAS…", m.sendWallet)}},
+		button("Consolidate notes…", m.consolidateWallet),
 		TextEdit{AssignTo: &m.walletHistory, ReadOnly: true, VScroll: true, MinSize: Size{Height: 160}, Text: "Transactions and saved send receipts appear here."},
 		Label{Text: "Backup and viewing keys", Font: Font{Bold: true}},
 		Composite{Layout: HBox{}, Children: []Widget{button("Show recovery backup…", m.showRecovery), button("Export FVK…", func() { m.exportViewKey(false) }), button("Export OVK…", func() { m.exportViewKey(true) })}},
@@ -669,7 +670,7 @@ func (m *manager) pollPersonalWallet(id, token string, port int) {
 	defer cancel()
 	s, e := (wallet.Client{Port: port, Token: token}).Status(ctx)
 	m.onUI(func() {
-		if m.vault == nil || m.selectedWallet != id || m.busy {
+		if m.mainTabs.CurrentIndex() != 1 || m.vault == nil || m.selectedWallet != id || m.busy {
 			return
 		}
 		w := m.vault.Find(id)
@@ -696,6 +697,12 @@ func receiptText(w *wallet.Wallet) string {
 	for i := len(w.Receipts) - 1; i >= 0; i-- {
 		r := w.Receipts[i]
 		text += fmt.Sprintf("%s · %s ZKAS · %s\r\nTo: %s\r\nTx: %s\r\n", r.Time, r.Amount, r.State, r.To, r.TxID)
+		if r.Kind != "" {
+			text += "Type: " + r.Kind + "\r\n"
+		}
+		if r.Memo != "" {
+			text += "Memo: " + r.Memo + "\r\n"
+		}
 	}
 	return text
 }

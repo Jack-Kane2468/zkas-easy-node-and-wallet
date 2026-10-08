@@ -233,7 +233,7 @@ func runSharingHost(root string) error {
 		if e != nil {
 			return e
 		}
-		defer log.file.Close()
+		defer log.Close()
 		tor := exec.CommandContext(ctx, s.TorExecutable, "-f", torrc)
 		tor.Dir = filepath.Dir(s.TorExecutable)
 		writer := &torLogWriter{log: log, ready: &torReady}

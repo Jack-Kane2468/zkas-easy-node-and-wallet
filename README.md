@@ -1,6 +1,6 @@
 # ZKas Node Manager
 
-A Windows desktop manager for running a ZKas node, connecting applications, managing local wallets, and setting up solo mining or optional public access.
+A Windows desktop manager for running a ZKas node, connecting applications, managing local wallets, and setting up solo mining or optional public access. Kaspa support includes a separate node and wallet vault, sharing controls and local merged mining.
 
 **Community preview · Windows x64 · unsigned · independently maintained.** This project is not an official ZKas, Zcash or Kaspa product. Read [validation and limitations](VALIDATION.md) before relying on wallet or public-hosting features.
 
@@ -8,7 +8,7 @@ A Windows desktop manager for running a ZKas node, connecting applications, mana
 
 1. Open this repository's **Releases** page and download the **Windows-x64 ZIP** attached to a release. GitHub's **Code → Download ZIP** is source code, not the runnable application.
 2. Extract the **whole ZIP** to a folder. Keep `wallet-runtime` next to `ZKasNodeManager.exe`.
-3. Open `ZKasNodeManager.exe`. Click **Overview → Install / setup** to open Settings, choose **Install / repair components**, then use **Overview → Start services** if needed. Initial blockchain synchronization takes time.
+3. Open `ZKasNodeManager.exe`. Click **Overview → Install / setup** to open Settings, choose **Install / repair components**, then use **Overview → Start ZKas services** if needed. Initial blockchain synchronization takes time.
 
 No Go, Rust or separate Node.js installation is needed for a release ZIP. The node and optional mining bridge are downloaded during installation; an internet connection is required. The manager does not mine automatically.
 
@@ -23,9 +23,10 @@ Windows may warn because the EXE is unsigned. Verify the download source and che
 | Mining | Install or uninstall the bridge, connect miners through Stratum TCP 5555, and view bridge-reported workers/hashrate. |
 | Sharing | Configure incoming peers, HTTPS wallet API access, or personal/public Tor onion access. |
 | Settings | Node storage and ports, startup options, installation and uninstall. |
+
 | Logs | Read colored service logs, follow the newest entries, or pause to inspect older output. |
 
-Closing the window leaves services running. These are background processes owned by your Windows user, not Windows Service Control Manager services. Autostart runs at sign-in.
+Closing the window leaves services running. These are background processes owned by your Windows user, not Windows Service Control Manager services. ZKas autostart runs at sign-in. Kaspa has its own optional sign-in startup setting. Mining starts manually.
 
 The built-in wallet stores secrets in a password-encrypted local vault. Keep your own recovery backup; uninstall retains user data. Never share seeds, spending keys, vault files, API tokens, or viewing keys in issues. Viewing keys reveal private financial history even though they cannot spend funds.
 
@@ -45,6 +46,7 @@ Local-only use is the default. Copy the API addresses shown in Overview instead 
 
 - [Wallets](WALLETS.md) — account numbers, backup, receive/send and exports.
 - [Wallet tools](WALLET-TOOLS.md) — independent FVK/OVK scans and their limits.
+- [Kaspa and mining](KASPA.md) — node setup, developer APIs and merged mining.
 - [Mining](MINING.md) — bridge, miner setup and uninstall.
 - [Sharing](SHARING.md) — peers, HTTPS, onion addresses and firewall setup.
 - [Application connections](CONNECTIONS.md) — local APIs for bots and tools.
@@ -58,3 +60,15 @@ Manager code is MIT licensed. The viewing helper is ISC licensed. Other bundled 
 Node/bridge upstream: https://github.com/firecash/zkas-rusty
 
 Signer upstream: https://github.com/firecash/zkas-wallet
+
+**Overview, Wallet, Sharing and Settings** each have **ZKas** and **Kaspa** subtabs. **Mining** has exactly **ZKas**, **Kaspa** and **Merged** subtabs. Existing ZKas bridge settings remain intact.
+
+Wallet mode keeps shielded note history without enabling full archive mode. Node logs labeled `archival: shielded history` can therefore be expected even with Archive disabled.
+
+## Wallet features
+
+Kaspa has a separate wallet vault, encrypted backup/restore, indexed receiving and change addresses, per-address UTXOs, password changes and wallet removal. See [Kaspa wallet details](KASPA.md).
+
+ZKas sends accept an optional encrypted memo of up to 512 UTF-8 bytes. **Consolidate notes** prepares one self-payment round of 3–38 spendable notes, displays its fee and requires confirmation before local signing. Resulting notes must mature again; no further round is automatically submitted. The original spending keys remain on the PC.
+
+

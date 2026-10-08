@@ -119,6 +119,9 @@ func firewallHelper() error {
 	return e
 }
 func startMining(root string, c node.Config, mc node.MiningConfig) error {
+	if serviceActive(root, "dual") {
+		return fmt.Errorf("Stop shared mining first; mining modes share port 5555")
+	}
 	if serviceActive(root, "mining") {
 		return fmt.Errorf("Mining bridge is already running")
 	}

@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"time"
+	"zkas-node-manager/internal/chains"
 	"zkas-node-manager/internal/node"
 )
 
@@ -18,13 +19,23 @@ func (m *manager) miningTab() TabPage {
 	}
 	return TabPage{Title: "Mining", Layout: VBox{MarginsZero: true}, Children: []Widget{
 		ScrollView{Layout: VBox{Spacing: 8}, Children: []Widget{
-			Label{Text: "Solo mining · Stratum TCP 5555", Font: Font{PointSize: 12, Bold: true}},
+			Label{Text: "ZKas-only mining · Stratum TCP 5555", Font: Font{PointSize: 12, Bold: true}},
 			sharingPanel("MINING SOFTWARE", "Install the connection for your miners", "The mining bridge connects ASIC / Stratum miners to your ZKas node. It is an extra program, installed separately from the node.", walk.RGB(29, 78, 140), walk.RGB(236, 244, 255), []Widget{
 				Label{AssignTo: &m.miningStatus, Text: "Checking mining software…", Font: Font{Bold: true}},
 				PushButton{AssignTo: &m.miningInstall, Text: "Install mining bridge", OnClicked: m.installMiningClicked},
 				PushButton{AssignTo: &m.miningRemove, Text: "Uninstall mining bridge…", OnClicked: m.uninstallMiningClicked},
 				TextLabel{Text: "You can install while the node is syncing. Installation downloads the matching bridge; it does not start mining or open a port. Progress appears in the manager's status area.", MinSize: Size{Width: 240}},
 			}),
+			PushButton{Text: "Open live mining dashboard", OnClicked: func() {
+				kc, _ := chains.Read(m.root)
+				if serviceActive(m.root, "dual") && kc.Mode == "zkas" {
+					openExternal("http://127.0.0.1:18889")
+				} else if serviceActive(m.root, "mining") {
+					openExternal("http://127.0.0.1:18888")
+				} else {
+					m.walletError(fmt.Errorf("Start ZKas mining first"))
+				}
+			}},
 			TextEdit{AssignTo: &m.miningStats, ReadOnly: true, VScroll: true, MinSize: Size{Height: 150}, Text: "Waiting for bridge statistics…"},
 			TextLabel{MinSize: Size{Width: 240}, Text: "Workers reflect recent share activity (up to 5 minutes), not a live TCP count. Hashrate is a share-based estimate. Counters reset with the bridge; reported blocks are not guaranteed paid rewards."},
 			Label{Text: "For Kaspa-compatible kHeavyHash ASICs / Stratum miners."},
@@ -46,7 +57,15 @@ func (m *manager) miningTab() TabPage {
 			Label{Text: "Automatic difficulty adjustment is enabled. Password: x"},
 			Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
 				PushButton{AssignTo: &m.miningStart, Text: "Start mining (open LAN port 5555)", OnClicked: m.startMiningClicked},
-				PushButton{AssignTo: &m.miningStop, Text: "Stop mining", OnClicked: func() { m.action(func() error { return stopOne(m.root, "mining") }) }},
+				PushButton{AssignTo: &m.miningStop, Text: "Stop mining", OnClicked: func() {
+					m.action(func() error {
+						kc, _ := chains.Read(m.root)
+						if serviceActive(m.root, "dual") && kc.Mode == "zkas" {
+							return stopOne(m.root, "dual")
+						}
+						return stopOne(m.root, "mining")
+					})
+				}},
 			}},
 			Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
 				PushButton{Text: "Copy Stratum URL", OnClicked: func() { m.copyText("Stratum URL", m.miningURL.Text()) }},
@@ -98,7 +117,13 @@ func (m *manager) refreshMining() {
 	if info, e := os.Stat(m.mining.Executable); e != nil || info.IsDir() {
 		installed = false
 	}
-	matching := installed && m.mining.Version == m.cfg.Version
+	kc, _ := chains.Read(m.root)
+	alternative := !installed && componentPresent(kc.DualBridge)
+	matching := (installed && m.mining.Version == m.cfg.Version) || alternative
+	dualActive := serviceActive(m.root, "dual")
+	if dualActive && kc.Mode == "zkas" {
+		active = true
+	}
 	text := "Installed — ready to start after the node finishes syncing"
 	button := "Repair / check installation"
 	if !installed {
@@ -114,11 +139,22 @@ func (m *manager) refreshMining() {
 	}
 	m.miningInstall.SetText(button)
 	m.miningInstall.SetEnabled(!m.busy && !active && m.cfg.Version != "")
+	if alternative {
+		text = "ZKas-capable merged bridge installed — ready for ZKas-only mining"
+		button = "Install original ZKas bridge (optional)"
+	}
+	if dualActive && kc.Mode != "zkas" {
+		text = "Kaspa / merged bridge is using port 5555. Stop it before starting ZKas-only mining."
+	}
 	if active {
 		text = "Mining bridge running · TCP 5555"
 	}
 	m.miningStatus.SetText(text)
-	m.miningStart.SetEnabled(!m.busy && !active && matching && m.cfg.Version != "")
+	m.miningStart.SetVisible((installed || alternative) && !active)
+	m.miningStart.SetEnabled(!m.busy && !active && !dualActive && matching && m.cfg.Version != "")
+	m.miningInstall.SetVisible(!matching)
+	m.miningStop.SetVisible(active)
+	m.miningRemove.SetVisible(installed)
 	m.miningStop.SetEnabled(!m.busy && active)
 	m.miningRemove.SetEnabled(!m.busy && (installed || active || m.mining.HostExecutable != ""))
 	for _, w := range []walk.Widget{m.miningAddress, m.miningWorker, m.miningDiff} {
@@ -132,6 +168,19 @@ func (m *manager) startMiningClicked() {
 		return
 	}
 	c := m.cfg
+	kc, err := chains.Read(m.root)
+	if err != nil {
+		m.walletError(err)
+		return
+	}
+	if !componentPresent(chains.Binary{Path: mc.Executable}) && componentPresent(kc.DualBridge) {
+		kc.Mode = "zkas"
+		kc.ZKasAddress = mc.Address
+		kc.LAN = true
+		m.chainAction("Starting ZKas mining", "ZKas-only mining started using the installed merged-capable bridge.", func() error { return startDual(m.root, c, kc) })
+		return
+	}
+
 	m.action(func() error {
 		if !serviceActive(m.root, "node") {
 			return fmt.Errorf("Start the existing node first from Overview")

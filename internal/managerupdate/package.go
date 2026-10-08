@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-var Required = []string{"ZKasNodeManager.exe", "wallet-runtime/node.exe", "wallet-runtime/signer.mjs", "wallet-runtime/official-signer.mjs", "wallet-runtime/official-signer.wasm", "wallet-runtime/view-tools.mjs", "wallet-runtime/view-tools.wasm"}
+var Required = []string{"ZKasNodeManager.exe", "wallet-runtime/node.exe", "wallet-runtime/signer.mjs", "wallet-runtime/official-signer.mjs", "wallet-runtime/official-signer.wasm", "wallet-runtime/view-tools.mjs", "wallet-runtime/view-tools.wasm", "wallet-runtime/kaspa.cjs", "wallet-runtime/kaspa_bg.wasm", "wallet-runtime/kaspa-wallet.cjs", "wallet-runtime/kaspa-addresses.cjs"}
 
 func SafeName(s string) bool {
 	if s == "" || strings.ContainsAny(s, "\\:\x00<>\"|?*") || strings.HasPrefix(s, "/") || path.Clean(s) != s {

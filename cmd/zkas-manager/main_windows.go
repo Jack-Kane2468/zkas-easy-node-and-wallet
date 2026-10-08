@@ -15,6 +15,7 @@ import (
 	"sync/atomic"
 	"time"
 	"unsafe"
+	"zkas-node-manager/internal/chains"
 	"zkas-node-manager/internal/node"
 )
 
@@ -56,6 +57,42 @@ func main() {
 			return
 		case "--sharing-firewall":
 			if sharingFirewallHelper() != nil {
+				os.Exit(1)
+			}
+			return
+		case "--kaspa-autostart":
+			c, e := chains.Read(root)
+			if e == nil && c.AutoStart && !serviceActive(root, "kaspa") {
+				zc, _ := node.ReadConfig(root)
+				if e = startKaspa(root, zc); e != nil {
+					os.WriteFile(serviceErrorFile(root, "kaspa"), []byte(e.Error()), 0600)
+				}
+			}
+			return
+		case "--kaspa-sharing-host":
+			if e := runKaspaSharingHost(root); e != nil {
+				os.WriteFile(serviceErrorFile(kaspaAccessRoot(root), "sharing"), []byte(e.Error()), 0600)
+				os.Exit(1)
+			}
+			return
+		case "--kaspa-firewall":
+			if kaspaFirewallHelper(false) != nil {
+				os.Exit(1)
+			}
+			return
+		case "--remove-kaspa-firewall":
+			if kaspaFirewallHelper(true) != nil {
+				os.Exit(1)
+			}
+			return
+		case "--kaspa-host", "--dual-host":
+			kind := strings.TrimSuffix(strings.TrimPrefix(os.Args[1], "--"), "-host")
+			if runHost(root, kind) != nil {
+				os.Exit(1)
+			}
+			return
+		case "--allow-chain-lan", "--remove-chain-lan":
+			if chainFirewallHelper(root, os.Args[1] == "--remove-chain-lan") != nil {
 				os.Exit(1)
 			}
 			return
@@ -128,6 +165,10 @@ func main() {
 }
 
 type manager struct {
+	chainsUI
+	kaspaSettingsUI
+	kaspaSharingUI
+	kaspaWalletUI
 	setupSection    *walk.GroupBox
 	logContainer    *walk.Composite
 	logPause        *walk.CheckBox
@@ -183,7 +224,7 @@ func (m *manager) create() error {
 
 	e := (MainWindow{
 		MenuItems: []MenuItem{Menu{Text: "Window", Items: []MenuItem{Action{Text: "Compact / restore", Shortcut: Shortcut{Key: walk.KeyEscape}, OnTriggered: m.compactWindow}}}},
-		AssignTo:  &m.window, Title: "ZKas Node Manager", MinSize: Size{Width: 360, Height: 280}, Size: Size{Width: 680, Height: 520},
+		AssignTo:  &m.window, Title: "ZKas + Kaspa Node Manager", MinSize: Size{Width: 360, Height: 280}, Size: Size{Width: 680, Height: 520},
 		Font: Font{Family: "Segoe UI", PointSize: 9}, Layout: VBox{Margins: Margins{Left: 10, Top: 8, Right: 10, Bottom: 8}, Spacing: 6},
 		OnKeyDown: func(key walk.Key) {
 			if key == walk.KeyEscape {
@@ -192,11 +233,12 @@ func (m *manager) create() error {
 		},
 		Children: []Widget{
 			Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
-				Label{Text: "ZKas Node Manager", Font: Font{PointSize: 14, Bold: true}, EllipsisMode: EllipsisEnd}, HSpacer{},
+				Label{Text: "ZKas + Kaspa Node Manager", Font: Font{PointSize: 14, Bold: true}, EllipsisMode: EllipsisEnd}, HSpacer{},
 				PushButton{Text: "Compact / restore", OnClicked: m.compactWindow},
 			}},
-			TabWidget{AssignTo: &m.mainTabs, Pages: []TabPage{
-				{Title: "Overview", Layout: VBox{MarginsZero: true}, Children: []Widget{
+			Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{PushButton{Text: "ZKas", OnClicked: func() { m.mainTabs.SetCurrentIndex(0); m.overviewTabs.SetCurrentIndex(0) }}, PushButton{Text: "Kaspa", OnClicked: func() { m.mainTabs.SetCurrentIndex(0); m.overviewTabs.SetCurrentIndex(1) }}, PushButton{Text: "Mining", OnClicked: func() { m.mainTabs.SetCurrentIndex(2) }}, HSpacer{}}},
+			TabWidget{AssignTo: &m.mainTabs, OnCurrentIndexChanged: m.refreshVisiblePanel, Pages: []TabPage{
+				{Title: "Overview", Layout: VBox{MarginsZero: true}, Children: []Widget{TabWidget{AssignTo: &m.overviewTabs, Pages: []TabPage{{Title: "ZKas", Layout: VBox{MarginsZero: true}, Children: []Widget{
 					ScrollView{Layout: VBox{Spacing: 10}, Children: []Widget{
 						GroupBox{AssignTo: &m.setupSection, Visible: m.cfg.Version == "", Title: "Setup", Layout: VBox{Spacing: 6}, Children: []Widget{
 							PushButton{Text: "Install / setup", Font: Font{Bold: true}, OnClicked: func() {
@@ -210,8 +252,8 @@ func (m *manager) create() error {
 						Label{AssignTo: &m.walletStatus, Text: "Wallet backend: checking…"},
 						Label{AssignTo: &m.version},
 						Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
-							PushButton{AssignTo: &m.start, Text: "Start services", OnClicked: m.startClicked},
-							PushButton{AssignTo: &m.stop, Text: "Stop services", OnClicked: func() {
+							PushButton{AssignTo: &m.start, Text: "Start ZKas services", OnClicked: m.startClicked},
+							PushButton{AssignTo: &m.stop, Text: "Stop ZKas services", OnClicked: func() {
 								m.action(func() error { m.setProgress("Waiting for clean shutdown…"); return stopNode(m.root) })
 							}},
 							PushButton{AssignTo: &m.update, Text: "Check node updates", OnClicked: m.checkUpdate},
@@ -234,11 +276,11 @@ func (m *manager) create() error {
 						Label{Text: "Consensus sync and wallet history scans finish separately."},
 						Label{Text: "Closing this window leaves your services running."},
 					}},
-				}},
-				m.walletTab(),
-				m.miningTab(),
-				m.sharingTab(),
-				{AssignTo: &m.settingsPage, Title: "Settings", Layout: VBox{MarginsZero: true}, Children: []Widget{
+				}}, m.kaspaOverviewTab()}}}},
+				m.allWalletTab(),
+				m.allMiningTab(),
+				m.allSharingTab(),
+				{AssignTo: &m.settingsPage, Title: "Settings", Layout: VBox{MarginsZero: true}, Children: []Widget{TabWidget{Pages: []TabPage{{Title: "ZKas", Layout: VBox{MarginsZero: true}, Children: []Widget{
 					ScrollView{Layout: VBox{Spacing: 8}, Children: []Widget{
 						Label{Text: "Install and configure", Font: Font{PointSize: 12, Bold: true}},
 						Label{Text: "The defaults suit most users. Review the options below, then install."},
@@ -268,7 +310,7 @@ func (m *manager) create() error {
 						Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
 							Label{Text: "Resident wallets (0 = automatic)"}, NumberEdit{AssignTo: &m.resident, MinValue: 0, MaxValue: 10000, Decimals: 0, Value: float64(m.cfg.ResidentWallets)},
 						}},
-						CheckBox{AssignTo: &m.auto, Text: "Start services when I sign in", Checked: m.cfg.AutoStart},
+						CheckBox{AssignTo: &m.auto, Text: "Start ZKas services when I sign in", Checked: m.cfg.AutoStart},
 						Label{Text: "Settings save when you install or start. Remote access is configured separately in Sharing."},
 
 						Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
@@ -276,10 +318,10 @@ func (m *manager) create() error {
 							PushButton{AssignTo: &m.removeButton, Text: "Uninstall…", OnClicked: m.remove},
 						}},
 					}},
-				}},
+				}}, m.kaspaSettingsTab()}}}},
 				{Title: "Logs", Layout: VBox{}, Children: []Widget{
 					Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
-						ComboBox{AssignTo: &m.logSelect, Model: []string{"Node log", "Wallet backend log", "Mining bridge log", "Tor log"}, CurrentIndex: 0, OnCurrentIndexChanged: m.refreshLogs},
+						ComboBox{AssignTo: &m.logSelect, Model: []string{"ZKas node log", "Wallet backend log", "ZKas mining log", "Tor log", "Kaspa node log", "Kaspa / merged mining log", "Kaspa Tor log"}, CurrentIndex: 0, OnCurrentIndexChanged: m.refreshLogs},
 						PushButton{Text: "Latest", OnClicked: m.latestLog},
 						CheckBox{AssignTo: &m.logPause, Text: "Pause"},
 						PushButton{Text: "Open log folder", OnClicked: func() { m.open(filepath.Join(m.root, "logs")) }},
@@ -298,6 +340,9 @@ func (m *manager) create() error {
 		return e
 	}
 	m.refreshLogs()
+	for _, u := range m.minePages {
+		u.detailsChanged()
+	}
 	m.window.Closing().Attach(func(canceled *bool, reason walk.CloseReason) {
 		if m.busy {
 			*canceled = true
@@ -307,11 +352,19 @@ func (m *manager) create() error {
 				m.toolsCancel()
 			}
 			m.closed.Store(true)
+			if !m.chainsPolling {
+				m.kaspaMonitor.Close()
+				m.zkasMiningMonitor.Close()
+			}
+			if m.kwProcess != nil {
+				m.kwProcess.stop()
+			}
 		}
 	})
 	go func() {
 		monitor := &node.InfoMonitor{}
 		defer monitor.Close()
+		var lastWalletPoll time.Time
 		for {
 			time.Sleep(2 * time.Second)
 			if m.closed.Load() {
@@ -320,18 +373,42 @@ func (m *manager) create() error {
 			var walletID, walletToken string
 			var personalPort int
 			var snapshot node.Config
-			m.onUI(func() { snapshot = m.cfg; walletID, walletToken, personalPort = m.walletPollSnapshot() })
-			m.pollPersonalWallet(walletID, walletToken, personalPort)
+			tab := -1
+			visible := false
+			m.onUI(func() {
+				snapshot = m.cfg
+				visible = m.window.Visible() && !win.IsIconic(m.window.Handle())
+				if visible {
+					tab = m.mainTabs.CurrentIndex()
+				}
+				if tab == 1 && m.walletTabs.CurrentIndex() == 0 && time.Since(lastWalletPoll) >= 5*time.Second {
+					walletID, walletToken, personalPort = m.walletPollSnapshot()
+				}
+			})
+			if walletID != "" {
+				m.pollPersonalWallet(walletID, walletToken, personalPort)
+				lastWalletPoll = time.Now()
+			}
+			if !visible {
+				continue
+			}
 			port := snapshot.GRPC
 			r, e := hostCommand(m.root, "status")
 			var info node.NodeInfo
 			var rpcErr error
-			if e == nil && r.Running {
+			if tab == 0 && e == nil && r.Running {
 				info, rpcErr = monitor.Get(context.Background(), port)
 			}
 			walletText := "Wallet backend: disabled"
 			if snapshot.EnableWallet {
 				walletText = "Wallet backend: stopped"
+				if b, err := os.ReadFile(serviceErrorFile(m.root, "wallet")); err == nil && len(b) > 0 {
+					reason := strings.SplitN(string(b), "\n", 2)[0]
+					if len(reason) > 240 {
+						reason = reason[:240] + "…"
+					}
+					walletText += "\n" + reason
+				}
 				if snapshot.WalletExecutable == "" {
 					walletText = "Wallet backend: not installed (see Settings)"
 				}
@@ -343,7 +420,7 @@ func (m *manager) create() error {
 				}
 			}
 			statsText := "Mining bridge is stopped."
-			if serviceActive(m.root, "mining") {
+			if tab == 2 && serviceActive(m.root, "mining") {
 				stats, statsErr := node.ReadMiningStats(context.Background())
 				if statsErr != nil {
 					statsText = "Statistics unavailable. If using the previous bridge host, stop ONLY mining, then click Set up / start mining once to enable statistics. Otherwise check mining logs and port 18888. No live data is being displayed."
@@ -356,9 +433,27 @@ func (m *manager) create() error {
 					}
 				}
 			}
+			if tab == 2 && serviceActive(m.root, "dual") {
+				kc, _ := chains.Read(m.root)
+				if kc.Mode == "zkas" {
+					statsText = "ZKas-only mining is running through the merged-capable bridge. Open its live dashboard below for workers, hashrate and blocks."
+				}
+			}
+
 			m.onUI(func() {
-				m.miningStats.SetText(statsText)
-				m.walletStatus.SetText(walletText)
+				if (tab == 0 || tab == 2) && time.Since(m.chainsPolled) > 2*time.Second {
+					m.refreshChains()
+
+				}
+				if tab == 1 && m.walletTabs.CurrentIndex() == 1 {
+					m.kwPoll()
+				}
+				if tab == 2 && m.miningStats.Text() != statsText {
+					m.miningStats.SetText(statsText)
+				}
+				if m.walletStatus.Text() != walletText {
+					m.walletStatus.SetText(walletText)
+				}
 				m.refresh(r, e, info, rpcErr)
 			})
 		}
@@ -435,12 +530,24 @@ func (m *manager) refresh(r hostReply, hostErr error, info node.NodeInfo, rpcErr
 			}
 		}
 	}
-	m.status.SetText(state)
+	if m.status.Text() != state {
+		m.status.SetText(state)
+	}
 	m.refreshWalletControls()
-	m.refreshMining()
-	m.refreshSharing()
-	m.version.SetText("Installed node: " + m.cfg.Version + "    Manager: " + node.ManagerVersion)
-	m.endpoints.SetText(m.endpointText())
+	if m.mainTabs.CurrentIndex() == 2 {
+		m.refreshMining()
+	}
+	if m.mainTabs.CurrentIndex() == 3 {
+		m.refreshSharing()
+	}
+	versionText := "Installed node: " + m.cfg.Version + "    Manager: " + node.ManagerVersion
+	if m.version.Text() != versionText {
+		m.version.SetText(versionText)
+	}
+	endpointText := m.endpointText()
+	if m.endpoints.Text() != endpointText {
+		m.endpoints.SetText(endpointText)
+	}
 	for _, w := range []walk.Widget{m.data, m.grpc, m.ws, m.enableWS, m.mode, m.auto, m.browse, m.enableWallet, m.walletPort, m.resident} {
 		w.SetEnabled(!m.busy && !active)
 	}
@@ -450,8 +557,10 @@ func (m *manager) refresh(r hostReply, hostErr error, info node.NodeInfo, rpcErr
 	m.update.SetEnabled(!m.busy && installed)
 	m.managerUpdate.SetEnabled(!m.busy)
 	m.managerPreviews.SetEnabled(!m.busy)
-	m.removeButton.SetEnabled(!m.busy && installed)
+	_, componentsErr := os.Stat(filepath.Join(m.root, "components"))
+	m.removeButton.SetEnabled(!m.busy && (installed || componentsErr == nil))
 	m.refreshLogs()
+	m.updateChainControls()
 }
 func (m *manager) action(work func() error) {
 	if m.busy {
@@ -470,8 +579,16 @@ func (m *manager) action(work func() error) {
 				m.progress.SetText("Action did not complete. See the details below.")
 				walk.MsgBox(m.window, "ZKas Node Manager", e.Error(), walk.MsgBoxIconError)
 			} else {
-				m.progress.SetText("Done.")
+				if m.chainCompletion != "" {
+					m.progress.SetText(m.chainCompletion)
+				} else {
+					m.progress.SetText("Done.")
+				}
 			}
+			m.chainOperation = ""
+			m.chainCompletion = ""
+			m.updateChainControls()
+			m.refreshChains()
 		})
 	}()
 }
@@ -486,9 +603,6 @@ func (m *manager) startClicked() {
 		return
 	}
 	m.action(func() error {
-		if e := ensureInstalled(m.root); e != nil {
-			return e
-		}
 		if e := node.CheckBinary(c); e != nil {
 			return e
 		}
@@ -602,9 +716,10 @@ func (m *manager) remove() {
 	if m.busy {
 		return
 	}
-	if walk.MsgBox(m.window, "Uninstall ZKas Node Manager", "Stop all services, uninstall the mining bridge (including its port 5555 firewall rule), and remove the installed programs and startup entry?\n\nBlockchain data, wallet scan files, logs and settings will be kept. A small temporary cleanup executable may remain in your Windows temp folder.", walk.MsgBoxYesNo|walk.MsgBoxIconQuestion) != walk.DlgCmdYes {
+	if walk.MsgBox(m.window, "Uninstall ZKas Node Manager", "Stop ZKas, Kaspa and all mining bridges (including their firewall rules), and remove the installed programs and startup entry?\n\nBlockchain data, wallet scan files, logs and settings will be kept. A small temporary cleanup executable may remain in your Windows temp folder.", walk.MsgBoxYesNo|walk.MsgBoxIconQuestion) != walk.DlgCmdYes {
 		return
 	}
+	m.kwLock()
 	m.action(func() error {
 		if e := uninstall(m.root); e != nil {
 			return e
@@ -643,4 +758,23 @@ func (m *manager) compactWindow() {
 		hgt = height * 85 / 100
 	}
 	m.window.SetBoundsPixels(walk.Rectangle{X: int(area.Left) + (width-w)/2, Y: int(area.Top) + (height-hgt)/2, Width: w, Height: hgt})
+}
+
+func (m *manager) refreshVisiblePanel() {
+	if m.mainTabs == nil || m.logs == nil {
+		return
+	}
+	switch m.mainTabs.CurrentIndex() {
+	case 1:
+		m.refreshWalletControls()
+	case 2:
+		m.refreshMining()
+		m.refreshChains()
+	case 3:
+		m.refreshSharing()
+	case 5:
+		m.refreshLogs()
+	case 0:
+		m.refreshChains()
+	}
 }

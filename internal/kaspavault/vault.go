@@ -1,4 +1,4 @@
-package wallet
+package kaspavault
 
 import (
 	"crypto/aes"
@@ -9,45 +9,18 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"unicode/utf8"
 	"zkas-node-manager/internal/node"
 )
 
-type Address struct {
-	Index   uint32 `json:"index"`
-	Address string `json:"address"`
-}
-type Receipt struct {
-	Memo   string `json:"memo,omitempty"`
-	Kind   string `json:"kind,omitempty"`
-	Time   string `json:"time"`
-	To     string `json:"to"`
-	Amount string `json:"amount"`
-	Fee    string `json:"fee"`
-	TxID   string `json:"txid"`
-	State  string `json:"state"`
-}
 type Wallet struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	Secret    string    `json:"secret,omitempty"`
-	Seed      string    `json:"seed,omitempty"`
-	Account   uint32    `json:"account"`
-	FVK       string    `json:"fvk"`
-	Address   string    `json:"address"`
-	Token     string    `json:"token"`
-	Addresses []Address `json:"addresses"`
-	NextIndex uint32    `json:"nextIndex"`
-	SignedOut bool      `json:"signedOut"`
-	Receipts  []Receipt `json:"receipts"`
+	Receipts                       []string
+	ID, Name, Password, Passphrase string
+	Backup                         []byte
 }
-type Vault struct {
-	Wallets []Wallet `json:"wallets"`
-}
+type Vault struct{ Wallets []Wallet }
 type Envelope struct {
 	Version int    `json:"version"`
 	Salt    string `json:"salt"`
@@ -55,7 +28,7 @@ type Envelope struct {
 	Data    string `json:"data"`
 }
 
-func Path(root string) string { return filepath.Join(root, "personal-wallets", "vault.json") }
+func Path(root string) string { return filepath.Join(root, "kaspa-vault", "vault.json") }
 func Exists(root string) bool { _, e := os.Stat(Path(root)); return e == nil }
 func key(password string, salt []byte) ([]byte, error) {
 	return pbkdf2.Key(sha256.New, password, salt, 600000, 32)
@@ -90,15 +63,28 @@ func Save(root, password string, v *Vault) error {
 		return e
 	}
 	defer clear(data)
-	sealed := gcm.Seal(nil, nonce, data, []byte("ZKasNodeManager wallet vault v1"))
+	if len(data) > 31<<20 {
+		return errors.New("Kaspa vault exceeds its backup size limit")
+	}
+	sealed := gcm.Seal(nil, nonce, data, []byte("ZKasNodeManager Kaspa vault v1"))
 	return node.AtomicJSON(Path(root), Envelope{1, hex.EncodeToString(salt), hex.EncodeToString(nonce), hex.EncodeToString(sealed)})
 }
 func Load(root, password string) (*Vault, error) {
-	b, e := os.ReadFile(Path(root))
+	return LoadFile(Path(root), password)
+}
+func LoadFile(path, password string) (*Vault, error) {
+	st, e := os.Stat(path)
 	if e != nil {
 		return nil, e
 	}
-	if len(b) > 16<<20 {
+	if st.Size() > 64<<20 {
+		return nil, errors.New("Kaspa vault exceeds 64 MB")
+	}
+	b, e := os.ReadFile(path)
+	if e != nil {
+		return nil, e
+	}
+	if len(b) > 64<<20 {
 		return nil, errors.New("Wallet vault is too large")
 	}
 	var env Envelope
@@ -133,7 +119,7 @@ func Load(root, password string) (*Vault, error) {
 	if e != nil {
 		return nil, e
 	}
-	plain, e := gcm.Open(nil, nonce, sealed, []byte("ZKasNodeManager wallet vault v1"))
+	plain, e := gcm.Open(nil, nonce, sealed, []byte("ZKasNodeManager Kaspa vault v1"))
 	if e != nil {
 		return nil, errors.New("Incorrect password or damaged wallet vault")
 	}
@@ -150,35 +136,3 @@ func (v *Vault) Find(id string) *Wallet {
 	}
 	return nil
 }
-func NewID() (string, error) { return node.NewSharingToken() }
-func ParseAmount(s string) (uint64, error) {
-	s = strings.TrimSpace(s)
-	parts := strings.Split(s, ".")
-	if len(parts) > 2 || parts[0] == "" {
-		return 0, errors.New("Enter an amount like 1.25")
-	}
-	fraction := ""
-	if len(parts) == 2 {
-		fraction = parts[1]
-	}
-	if len(fraction) > 8 {
-		return 0, errors.New("Use at most 8 decimal places")
-	}
-	digits := parts[0] + fraction + strings.Repeat("0", 8-len(fraction))
-	var n uint64
-	for _, c := range digits {
-		if c < '0' || c > '9' {
-			return 0, errors.New("Use digits and a decimal point only")
-		}
-		d := uint64(c - '0')
-		if n > (^uint64(0)-d)/10 {
-			return 0, errors.New("Amount is too large")
-		}
-		n = n*10 + d
-	}
-	if n == 0 {
-		return 0, errors.New("Amount must be greater than zero")
-	}
-	return n, nil
-}
-func FormatAmount(n uint64) string { return fmt.Sprintf("%d.%08d", n/100000000, n%100000000) }

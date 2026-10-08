@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+	"unicode/utf8"
 )
 
 type Client struct {
@@ -112,8 +113,14 @@ type Prepared struct {
 }
 
 func (c Client) Prepare(ctx context.Context, fvk, to string, amount uint64) (Prepared, error) {
+	return c.PrepareOptions(ctx, fvk, to, amount, "", false)
+}
+func (c Client) PrepareOptions(ctx context.Context, fvk, to string, amount uint64, memo string, partial bool) (Prepared, error) {
 	var p Prepared
-	e := c.Do(ctx, "POST", "/api/wallet/prepare", map[string]any{"fvk_hex": fvk, "to": to, "amount_sompi": strconv.FormatUint(amount, 10), "allow_partial": false}, &p)
+	if !utf8.ValidString(memo) || len(memo) > 512 {
+		return p, fmt.Errorf("Memo must be valid text, at most 512 UTF-8 bytes")
+	}
+	e := c.Do(ctx, "POST", "/api/wallet/prepare", map[string]any{"fvk_hex": fvk, "to": to, "amount_sompi": strconv.FormatUint(amount, 10), "memo": memo, "allow_partial": partial}, &p)
 	return p, e
 }
 func (p Prepared) Validate(amount, maxFee uint64) error {
@@ -155,6 +162,7 @@ func HistoryDisplay(data []byte) string {
 			Timestamp  int64  `json:"timestamp"`
 			Amount     uint64 `json:"amountSompi"`
 			Recipient  string `json:"recipient"`
+			Memo       string `json:"memo"`
 			AmountKind string `json:"amountKind"`
 		} `json:"rows"`
 		Pending []struct {
@@ -185,10 +193,61 @@ func HistoryDisplay(data []byte) string {
 		if r.Recipient != "" {
 			out += "To: " + r.Recipient + "\r\n"
 		}
+		if r.Memo != "" {
+			out += "Memo: " + r.Memo + "\r\n"
+		}
 		out += "\r\n"
 	}
 	for _, r := range h.Pending {
 		out += "Pending outgoing transaction: " + r.TxID + "\r\n"
 	}
 	return out
+}
+
+// A consolidation is a self-payment and may cover only one transaction-sized
+// portion. Require a net reduction even when it creates recipient + change notes.
+func (p Prepared) ValidateConsolidation(requested, maxFee uint64) (int, error) {
+	if p.Amount == 0 || p.Amount > requested || p.Remaining != requested-p.Amount {
+		return 0, fmt.Errorf("Invalid consolidation amount or remainder")
+	}
+	copy := p
+	copy.Remaining = 0
+	if e := copy.Validate(p.Amount, maxFee); e != nil {
+		return 0, e
+	}
+	var auth []struct {
+		Index uint64 `json:"index"`
+	}
+	if e := json.Unmarshal(p.SpendAuth, &auth); e != nil {
+		return 0, e
+	}
+	if len(auth) < 3 || len(auth) > 38 {
+		return 0, fmt.Errorf("Consolidation needs at least 3 spendable notes and at most 38 per round; nothing was sent")
+	}
+	var disclosure []struct {
+		OutValue uint64 `json:"out_value"`
+	}
+	if e := json.Unmarshal(p.Disclosure, &disclosure); e != nil {
+		return 0, e
+	}
+	outputs := 0
+	for _, row := range disclosure {
+		if row.OutValue > 0 {
+			outputs++
+		}
+	}
+	if outputs < 1 || outputs > 2 {
+		return 0, fmt.Errorf("Consolidation must produce one or two non-empty notes")
+	}
+	seen := map[uint64]bool{}
+	for _, v := range auth {
+		if v.Index >= uint64(len(disclosure)) {
+			return 0, fmt.Errorf("Consolidation input index is outside its disclosure")
+		}
+		if seen[v.Index] {
+			return 0, fmt.Errorf("Duplicate consolidation input")
+		}
+		seen[v.Index] = true
+	}
+	return len(auth), nil
 }

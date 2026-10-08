@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"unsafe"
 	"zkas-node-manager/internal/logformat"
 )
@@ -19,6 +20,7 @@ type logView struct {
 	hwnd         win.HWND
 	text, source string
 	force        bool
+	fileInfo     os.FileInfo
 }
 
 func newLogView(parent *walk.Composite) (*logView, error) {
@@ -32,7 +34,11 @@ func newLogView(parent *walk.Composite) (*logView, error) {
 	}
 	v := &logView{hwnd: h, force: true}
 	win.SendMessage(h, win.EM_SETBKGNDCOLOR, 0, uintptr(18|24<<8|34<<16))
-	win.SendMessage(h, win.EM_EXLIMITTEXT, 0, 1<<20)
+	win.SendMessage(h, win.EM_EXLIMITTEXT, 0, 256<<10)
+	win.SendMessage(h, win.EM_SETUNDOLIMIT, 0, 0)
+	font := win.CHARFORMAT{CbSize: uint32(unsafe.Sizeof(win.CHARFORMAT{})), DwMask: win.CFM_FACE | win.CFM_SIZE | win.CFM_COLOR, YHeight: 200, CrTextColor: logColors[1]}
+	copy(font.SzFaceName[:], windows.StringToUTF16("Consolas"))
+	win.SendMessage(h, win.EM_SETCHARFORMAT, win.SCF_ALL, uintptr(unsafe.Pointer(&font)))
 	win.SendMessage(h, win.EM_SETTARGETDEVICE, 0, 1) // horizontal scroll, no wrapping
 	resize := func() {
 		bottom := v.atBottom()
@@ -75,13 +81,31 @@ func (v *logView) show(source, text string, paused bool) {
 		win.SendMessage(v.hwnd, win.WM_SETREDRAW, 0, 0)
 		defer func() { win.SendMessage(v.hwnd, win.WM_SETREDRAW, 1, 0); win.InvalidateRect(v.hwnd, nil, false) }()
 	}
-	rtf := append([]byte(logformat.RTF(text)), 0)
-	flags := win.SETTEXTEX{Codepage: 65001}
-	win.SendMessage(v.hwnd, win.EM_SETTEXTEX, uintptr(unsafe.Pointer(&flags)), uintptr(unsafe.Pointer(&rtf[0])))
-	runtime.KeepAlive(rtf)
-	// Clear selection without moving keyboard focus; use the scrollbar to follow the end.
-	end := win.CHARRANGE{CpMin: -1, CpMax: -1}
-	win.SendMessage(v.hwnd, win.EM_EXSETSEL, 0, uintptr(unsafe.Pointer(&end)))
+	change := logformat.Delta(v.text, text)
+	if changed {
+		change = logformat.Change{Add: text, Reset: true}
+	}
+	if change.Reset {
+		selectLogRange(v.hwnd, 0, -1)
+		replaceLogText(v.hwnd, "")
+	} else if change.Drop > 0 {
+		selectLogRange(v.hwnd, 0, logformat.Units(v.text[:change.Drop]))
+		replaceLogText(v.hwnd, "")
+	}
+	if change.Add != "" {
+		selectLogRange(v.hwnd, -1, -1)
+		replaceLogText(v.hwnd, change.Add)
+		start := len(text) - len(change.Add)
+		start = strings.LastIndex(text[:start], "\n") + 1
+		base := logformat.Units(text[:start])
+		for _, r := range logformat.Runs(text[start:]) {
+			selectLogRange(v.hwnd, base+r.Start, base+r.End)
+			cf := win.CHARFORMAT{CbSize: uint32(unsafe.Sizeof(win.CHARFORMAT{})), DwMask: win.CFM_COLOR, CrTextColor: logColors[r.Color]}
+			win.SendMessage(v.hwnd, win.EM_SETCHARFORMAT, win.SCF_SELECTION, uintptr(unsafe.Pointer(&cf)))
+		}
+	}
+	win.SendMessage(v.hwnd, win.EM_EMPTYUNDOBUFFER, 0, 0)
+	selectLogRange(v.hwnd, -1, -1)
 	v.bottom()
 	var current win.POINT
 	win.SendMessage(v.hwnd, win.EM_GETSCROLLPOS, 0, uintptr(unsafe.Pointer(&current)))
@@ -102,16 +126,22 @@ func (m *manager) latestLog() {
 	m.refreshLogs()
 }
 func (m *manager) refreshLogs() {
-	if m.logs == nil {
+	if m.logs == nil || !win.IsWindowVisible(m.logs.hwnd) || win.IsIconic(m.window.Handle()) {
 		return
 	}
-	names := []string{"console.log", "wallet-console.log", "mining-console.log", "tor-console.log"}
+	names := []string{"console.log", "wallet-console.log", "mining-console.log", "tor-console.log", "kaspa-console.log", "dual-console.log", "kaspa-tor"}
 	i := m.logSelect.CurrentIndex()
 	if i < 0 || i >= len(names) {
 		return
 	}
 	path := filepath.Join(m.root, "logs", names[i])
-	f, e := os.Open(path)
+	if i == 6 {
+		path = filepath.Join(kaspaAccessRoot(m.root), "logs", "tor-console.log")
+	}
+	if path == m.logs.source && !m.logs.force && (m.logPause.Checked() || !m.logs.atBottom() || m.logs.selected()) {
+		return
+	}
+	f, e := openSharedLog(path)
 	if e != nil {
 		message := "No log entries yet."
 		if !os.IsNotExist(e) {
@@ -123,6 +153,9 @@ func (m *manager) refreshLogs() {
 	defer f.Close()
 	st, e := f.Stat()
 	if e != nil {
+		return
+	}
+	if path == m.logs.source && !m.logs.force && m.logs.fileInfo != nil && os.SameFile(st, m.logs.fileInfo) && st.Size() == m.logs.fileInfo.Size() && st.ModTime().Equal(m.logs.fileInfo.ModTime()) {
 		return
 	}
 	const limit = 128 * 1024
@@ -147,4 +180,34 @@ func (m *manager) refreshLogs() {
 		}
 	}
 	m.logs.show(path, string(b), m.logPause.Checked())
+	m.logs.fileInfo = st
+}
+
+var logColors = [...]win.COLORREF{
+	0, 226 | 232<<8 | 240<<16, 148 | 163<<8 | 184<<16, 255 | 125<<8 | 125<<16,
+	255 | 203<<8 | 107<<16, 103 | 216<<8 | 239<<16, 172 | 221<<8 | 188<<16,
+}
+
+func selectLogRange(h win.HWND, start, end int32) {
+	r := win.CHARRANGE{CpMin: start, CpMax: end}
+	win.SendMessage(h, win.EM_EXSETSEL, 0, uintptr(unsafe.Pointer(&r)))
+}
+func replaceLogText(h win.HWND, text string) {
+	text = strings.ReplaceAll(text, "\x00", "�")
+	b := windows.StringToUTF16(text)
+	win.SendMessage(h, win.EM_REPLACESEL, 0, uintptr(unsafe.Pointer(&b[0])))
+	runtime.KeepAlive(b)
+}
+
+// Allow the service to rotate logs while this window reads a bounded tail.
+func openSharedLog(path string) (*os.File, error) {
+	p, e := windows.UTF16PtrFromString(path)
+	if e != nil {
+		return nil, e
+	}
+	h, e := windows.CreateFile(p, windows.GENERIC_READ, windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE|windows.FILE_SHARE_DELETE, nil, windows.OPEN_EXISTING, windows.FILE_ATTRIBUTE_NORMAL, 0)
+	if e != nil {
+		return nil, e
+	}
+	return os.NewFile(uintptr(h), path), nil
 }

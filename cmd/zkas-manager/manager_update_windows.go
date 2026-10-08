@@ -13,6 +13,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"zkas-node-manager/internal/chains"
 	"zkas-node-manager/internal/managerupdate"
 	"zkas-node-manager/internal/node"
 )
@@ -353,5 +354,12 @@ func refreshManagerLinks(root, exe, version string) error {
 	if e != nil {
 		return e
 	}
-	return setAutoStart(root, c.AutoStart)
+	if e = setAutoStart(root, c.AutoStart); e != nil {
+		return e
+	}
+	kc, e := chains.Read(root)
+	if e != nil {
+		return e
+	}
+	return setKaspaAutoStart(root, kc.AutoStart)
 }

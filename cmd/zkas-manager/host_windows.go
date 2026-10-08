@@ -19,7 +19,9 @@ import (
 
 	"github.com/Microsoft/go-winio"
 	"golang.org/x/sys/windows"
+	"zkas-node-manager/internal/chains"
 	"zkas-node-manager/internal/node"
+	"zkas-node-manager/internal/rotatinglog"
 )
 
 var kernel = windows.NewLazySystemDLL("kernel32.dll")
@@ -30,6 +32,9 @@ func identity(root string) string {
 	return hex.EncodeToString(b[:12])
 }
 func serviceIdentity(root, kind string) string {
+	if kind == "kaspa" || kind == "dual" {
+		return identity(root + "/" + kind + "-service")
+	}
 	if kind == "sharing" {
 		return identity(root + "/sharing-service")
 	}
@@ -45,6 +50,9 @@ func pipeName(root, kind string) string {
 	return `\\.\pipe\ZKasNodeManager-` + serviceIdentity(root, kind)
 }
 func serviceErrorFile(root, kind string) string {
+	if kind == "kaspa" || kind == "dual" {
+		return filepath.Join(root, kind+"-host-error.txt")
+	}
 	if kind == "sharing" {
 		return filepath.Join(root, "sharing-host-error.txt")
 	}
@@ -57,7 +65,8 @@ func serviceErrorFile(root, kind string) string {
 	return filepath.Join(root, "host-error.txt")
 }
 func hostActive(root string) bool {
-	return serviceActive(root, "sharing") || serviceActive(root, "node") || serviceActive(root, "wallet") || serviceActive(root, "mining")
+	c, _ := chains.Read(root)
+	return (c.Mode != "kaspa" && serviceActive(root, "dual")) || serviceActive(root, "sharing") || serviceActive(root, "node") || serviceActive(root, "wallet") || serviceActive(root, "mining")
 }
 func mutex(name string) (windows.Handle, error) {
 	p, e := windows.UTF16PtrFromString(name)
@@ -115,6 +124,15 @@ func serviceCommand(root, kind, command string) (hostReply, error) {
 	return reply, e
 }
 func stopNode(root string) error {
+	c, err := chains.Read(root)
+	if err != nil {
+		return err
+	}
+	if c.Mode != "kaspa" {
+		if e := stopOne(root, "dual"); e != nil {
+			return e
+		}
+	}
 	if e := stopOne(root, "sharing"); e != nil {
 		return e
 	}
@@ -174,7 +192,24 @@ func startNode(root string, c node.Config) error {
 	}
 	return nil
 }
-func checkServicePorts(c node.Config, kind string) error {
+func checkServicePorts(c node.Config, kind string, roots ...string) error {
+	if kind == "kaspa" {
+		root := rootDir()
+		if len(roots) > 0 {
+			root = roots[0]
+		}
+		kc, e := chains.Read(root)
+		if e != nil {
+			return e
+		}
+		return node.CheckTCPPorts(kc.GRPC, kc.P2P, kc.Borsh, kc.JSON)
+	}
+	if kind == "dual" {
+		if e := node.CheckMiningPort(); e != nil {
+			return e
+		}
+		return node.CheckTCPPorts(18889, 18081, 18115)
+	}
 	if kind == "mining" {
 		if e := node.CheckMiningPort(); e != nil {
 			return e
@@ -191,7 +226,7 @@ func startOne(root string, c node.Config, kind string) error {
 	if serviceActive(root, kind) {
 		return fmt.Errorf("%s is already running", kind)
 	}
-	if e := checkServicePorts(c, kind); e != nil {
+	if e := checkServicePorts(c, kind, root); e != nil {
 		return e
 	}
 	for _, dir := range []string{c.DataDir, filepath.Join(root, "logs"), filepath.Join(root, "wallets")} {
@@ -204,7 +239,13 @@ func startOne(root string, c node.Config, kind string) error {
 	if kind == "wallet" {
 		arg = "--wallet-host"
 	}
-	hostExe, managerErr := preferredManagerExe(root)
+	var hostExe string
+	var managerErr error
+	if kind == "node" || kind == "wallet" {
+		hostExe, managerErr = copyManagerHost(root, "service-hosts")
+	} else {
+		hostExe, managerErr = preferredManagerExe(root)
+	}
 	if managerErr != nil {
 		return managerErr
 	}
@@ -215,6 +256,14 @@ func startOne(root string, c node.Config, kind string) error {
 		}
 		hostExe = mc.HostExecutable
 		arg = "--mining-host"
+	}
+	if kind == "kaspa" || kind == "dual" {
+		s, e := chains.Read(root)
+		if e != nil {
+			return e
+		}
+		hostExe = s.Host
+		arg = "--" + kind + "-host"
 	}
 	cmd := exec.Command(hostExe, arg)
 	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: windows.CREATE_NEW_CONSOLE, HideWindow: true}
@@ -241,45 +290,9 @@ func startOne(root string, c node.Config, kind string) error {
 	return fmt.Errorf("%s did not stay running. %s Check the logs", kind, string(b))
 }
 
-type rotatingLog struct {
-	mu   sync.Mutex
-	path string
-	file *os.File
-	size int64
-}
+type rotatingLog = rotatinglog.Writer
 
-func newLog(path string) (*rotatingLog, error) {
-	f, e := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
-	if e != nil {
-		return nil, e
-	}
-	s, e := f.Stat()
-	if e != nil {
-		f.Close()
-		return nil, e
-	}
-	return &rotatingLog{path: path, file: f, size: s.Size()}, nil
-}
-func (l *rotatingLog) Write(b []byte) (int, error) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	if l.size+int64(len(b)) > 10<<20 {
-		l.file.Close()
-		os.Remove(l.path + ".1")
-		if e := os.Rename(l.path, l.path+".1"); e != nil {
-			return 0, e
-		}
-		f, e := os.OpenFile(l.path, os.O_CREATE|os.O_WRONLY, 0600)
-		if e != nil {
-			return 0, e
-		}
-		l.file = f
-		l.size = 0
-	}
-	n, e := l.file.Write(b)
-	l.size += int64(n)
-	return n, e
-}
+func newLog(path string) (*rotatinglog.Writer, error) { return rotatinglog.New(path, 10<<20) }
 func runHost(root, kind string) (result error) {
 	// A GUI-subsystem executable must explicitly ensure it owns a console before
 	// spawning a console child and delivering CTRL_C in this isolated console.
@@ -309,7 +322,19 @@ func runHost(root, kind string) (result error) {
 	if e != nil {
 		return e
 	}
-	if kind == "mining" {
+	if kind == "kaspa" || kind == "dual" {
+		s, err := chains.Read(root)
+		if err != nil {
+			return err
+		}
+		b := s.Kaspa
+		if kind == "dual" {
+			b = s.Bridge()
+		}
+		if err = b.Check(); err != nil {
+			return err
+		}
+	} else if kind == "mining" {
 		mc, err := node.ReadMining(root)
 		if err != nil {
 			return err
@@ -322,11 +347,14 @@ func runHost(root, kind string) (result error) {
 			return e
 		}
 	}
-	if e = checkServicePorts(c, kind); e != nil {
+	if e = checkServicePorts(c, kind, root); e != nil {
 		return e
 	}
 	os.MkdirAll(filepath.Join(root, "logs"), 0700)
 	logName := "console.log"
+	if kind == "kaspa" || kind == "dual" {
+		logName = kind + "-console.log"
+	}
 	if kind == "mining" {
 		logName = "mining-console.log"
 	}
@@ -337,7 +365,7 @@ func runHost(root, kind string) (result error) {
 	if e != nil {
 		return e
 	}
-	defer func() { log.file.Close() }()
+	defer func() { log.Close() }()
 	user, e := windows.GetCurrentProcessToken().GetTokenUser()
 	if e != nil {
 		return e
@@ -361,6 +389,18 @@ func runHost(root, kind string) (result error) {
 		}
 		exe, args = mc.Executable, mc.Args(root, c.GRPC)
 	}
+	if kind == "kaspa" || kind == "dual" {
+		s, err := chains.Read(root)
+		if err != nil {
+			return err
+		}
+		c.Version = s.Kaspa.Version
+		exe, args = s.Kaspa.Path, chains.KaspaArgs(root)
+		if kind == "dual" {
+			exe, args = s.Bridge().Path, s.BridgeArgs(root)
+			c.Version = s.Bridge().Version
+		}
+	}
 	cmd := exec.Command(exe, args...)
 	cmd.Dir = filepath.Dir(exe)
 	cmd.Stdout = log
@@ -376,10 +416,26 @@ func runHost(root, kind string) (result error) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	// Do not let inherited KASPAD_* settings override the manager's selected network/settings.
 	for _, entry := range os.Environ() {
-		if !strings.HasPrefix(strings.ToUpper(entry), "KASPAD_") {
+		upper := strings.ToUpper(entry)
+		if !strings.HasPrefix(upper, "KASPAD_") && (!(kind == "kaspa" || kind == "dual") || (!strings.HasPrefix(upper, "ZKAS_") && !strings.HasPrefix(upper, "FIRECASH_") && !strings.HasPrefix(upper, "BRIDGE_") && !strings.HasPrefix(upper, "POOL_FALLBACK_ADDRESS="))) {
 			cmd.Env = append(cmd.Env, entry)
 		}
 	}
+	if kind == "dual" {
+		s, err := chains.Read(root)
+		if err != nil {
+			return err
+		}
+		if s.Mode != "kaspa" {
+			cmd.Env = append(cmd.Env, "POOL_FALLBACK_ADDRESS="+s.ZKasAddress)
+		}
+		if s.Mode == "merged" {
+			cmd.Env = append(cmd.Env, "ZKAS_MERGED_MINING=1", fmt.Sprintf("ZKAS_KASPA_NODE=127.0.0.1:%d", s.GRPC), "ZKAS_KASPA_PAY="+s.KaspaAddress)
+		} else {
+			cmd.Env = append(cmd.Env, "ZKAS_MERGED_MINING=0")
+		}
+	}
+
 	if e = cmd.Start(); e != nil {
 		return e
 	}

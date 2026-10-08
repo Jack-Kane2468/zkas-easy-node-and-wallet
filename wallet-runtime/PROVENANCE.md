@@ -16,3 +16,7 @@ Pinned signer source: https://github.com/firecash/zkas-wallet/tree/3668c84c14691
 The two upstream signer file hashes were compared directly with that commit when preparing this repository. This proves byte identity, not a source-level audit or reproducibility of the upstream WASM build. The Go pipeline uses that prebuilt WASM.
 
 NODE-LICENSE.txt includes Node's notices. SIGNER-LICENSE.txt retains upstream ISC attribution. Viewing-helper dependency notices are in view-tools/THIRD-PARTY-LICENSES (also included in runnable releases). Adapters follow the manager's MIT license. Do not remove upstream notices when redistributing.
+
+## Kaspa wallet SDK
+
+Official `kaspanet/rusty-kaspa` v2.1.0, `kaspa-wasm32-sdk-v2.1.0.zip`. Archive SHA-256: `ba674e109ff5dd8bedc4dc2ee8a5ecdf4b600b1178a541d77888ec58310b6124`. `nodejs/kaspa/kaspa.js` is distributed unchanged as `kaspa.cjs`; `kaspa_bg.wasm` is unchanged. License: KASPA-LICENSE.txt. `kaspa-wallet.cjs` is the manager IPC adapter and is included in the runtime hash manifest.

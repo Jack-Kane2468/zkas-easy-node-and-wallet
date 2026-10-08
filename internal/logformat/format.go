@@ -1,7 +1,6 @@
 package logformat
 
 import (
-	"fmt"
 	"regexp"
 	"strings"
 	"unicode/utf16"
@@ -17,8 +16,7 @@ func Normalize(s string) string {
 func Color(s string) int {
 	m := severity.FindStringSubmatch(s)
 	if len(m) > 0 {
-		level := strings.ToUpper(m[1] + m[2])
-		switch level {
+		switch strings.ToUpper(m[1] + m[2]) {
 		case "ERROR", "FATAL", "PANIC":
 			return 3
 		case "WARN", "WARNING":
@@ -35,42 +33,72 @@ func Color(s string) int {
 	}
 	return 1
 }
-func escape(b *strings.Builder, s string) {
+func Units(s string) int32 {
+	var n int32
 	for _, r := range s {
-		switch r {
-		case '\\', '{', '}':
-			b.WriteByte('\\')
-			b.WriteRune(r)
-		case '\t':
-			b.WriteString("\\tab ")
-		default:
-			if r >= 32 && r < 127 {
-				b.WriteRune(r)
-			} else if r >= 128 {
-				for _, u := range utf16.Encode([]rune{r}) {
-					fmt.Fprintf(b, "\\u%d?", int16(u))
-				}
-			}
-		}
+		n += int32(utf16.RuneLen(r))
 	}
+	return n
 }
-func RTF(text string) string {
-	var b strings.Builder
-	b.WriteString(`{\rtf1\ansi\deff0\uc1{\fonttbl{\f0 Consolas;}}{\colortbl;\red226\green232\blue240;\red148\green163\blue184;\red255\green125\blue125;\red255\green203\blue107;\red103\green216\blue239;\red172\green221\blue188;}\f0\fs20 `)
-	lines := strings.Split(text, "\n")
-	for i, line := range lines {
-		if i > 0 {
-			b.WriteString("\\par\n")
-		}
+
+type Run struct {
+	Start, End int32
+	Color      int
+}
+
+func Runs(s string) []Run {
+	var out []Run
+	var pos int32
+	for _, line := range strings.Split(s, "\n") {
 		stamp := timestamp.FindString(line)
-		if stamp != "" {
-			b.WriteString("\\cf2 ")
-			escape(&b, stamp)
-			line = line[len(stamp):]
+		t := Units(stamp)
+		end := pos + Units(line)
+		if t > 0 {
+			out = append(out, Run{pos, pos + t, 2})
 		}
-		fmt.Fprintf(&b, "\\cf%d ", Color(line))
-		escape(&b, line)
+		if end > pos+t {
+			out = append(out, Run{pos + t, end, Color(line[len(stamp):])})
+		}
+		pos = end + 1
 	}
-	b.WriteByte('}')
-	return b.String()
+	return out
+}
+
+type Change struct {
+	Drop  int
+	Add   string
+	Reset bool
+}
+
+// Find rolling-tail overlap in linear time, including repeated lines.
+func Delta(old, next string) Change {
+	if strings.HasPrefix(next, old) {
+		return Change{Add: next[len(old):]}
+	}
+	if next == "" {
+		return Change{Reset: true}
+	}
+	pi := make([]int32, len(next))
+	for i, j := 1, 0; i < len(next); i++ {
+		for j > 0 && next[i] != next[j] {
+			j = int(pi[j-1])
+		}
+		if next[i] == next[j] {
+			j++
+		}
+		pi[i] = int32(j)
+	}
+	j := 0
+	for i := 0; i < len(old); i++ {
+		for j > 0 && (j == len(next) || old[i] != next[j]) {
+			j = int(pi[j-1])
+		}
+		if old[i] == next[j] {
+			j++
+		}
+	}
+	if j == 0 {
+		return Change{Add: next, Reset: true}
+	}
+	return Change{Drop: len(old) - j, Add: next[j:]}
 }
