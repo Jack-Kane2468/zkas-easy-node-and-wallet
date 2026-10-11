@@ -215,7 +215,7 @@ func TestActualReleaseArchiveWhenProvided(t *testing.T) {
 		t.Skip("set ZKAS_TEST_ARCHIVE to test downloaded official Windows package")
 	}
 	got, e := FileHash(path)
-	if e != nil || got != "54e923dcdb96a7342c16ea1afe8275f326ed862696a72677c6a7a7d49041ff82" {
+	if e != nil || got != "6bcc33203084403e6a898e9055d48da09be1a716b93a0ac65e5587ca1b9d1c5b" {
 		t.Fatalf("official package mismatch: %s %v", got, e)
 	}
 	if e = ExtractNode(path, filepath.Join(t.TempDir(), "kaspad.exe")); e != nil {

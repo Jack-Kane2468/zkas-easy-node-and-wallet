@@ -1,10 +1,27 @@
 # Public and personal connections
 
-The Sharing tab groups controls in separate bordered panels: blue for other nodes, green for HTTPS wallets, purple for Tor wallets, and gray for wallet-sharing actions and saved addresses. Headings and borders also distinguish them without relying on color.
+The Sharing tab groups controls in separate bordered panels: amber for LAN devices, blue for other nodes, green for HTTPS wallets, purple for Tor wallets, and gray for wallet-sharing actions and saved addresses. Headings and borders also distinguish them without relying on color.
 
-These are independent options, not steps: public node peers, HTTPS wallet access, and Tor onion wallet access. You may use any combination. Nothing becomes public merely by opening the manager. Apply/start each option explicitly.
+These are independent options, not steps: local-network apps, public node peers, HTTPS wallet access, and Tor onion wallet access. You may use any combination. Nothing becomes public merely by opening the manager. Apply/start each option explicitly.
 
 Wallet clients can receive and send through the shared API: they keep spending keys on their own devices. The server handles viewing/scanning, prepares transactions and broadcasts signed submissions. The built-in Wallet tab is your personal client and works without public sharing.
+
+## Other computers on your local network / Wi-Fi
+
+Use **Sharing → ZKas** and/or **Sharing → Kaspa**. Each chain has its own **Local network / Wi-Fi** panel.
+
+1. Start the required node in Overview. For ZKas wallet REST, start its wallet backend too. For Kaspa address/balance queries, choose Wallet / application backend in Settings → Kaspa.
+2. Enable local-network access and select the node PC's Wi-Fi or Ethernet IPv4 address. With several adapters, choose the one on the same network as your other computer.
+3. Click **Apply choices / start sharing** and accept Windows firewall approval. Windows must classify your trusted home network as Private (or Domain).
+4. Copy the displayed gRPC, WebSocket or wallet REST endpoint into the bot/SDK on your other device. Use whichever protocol that app supports; replace its localhost address with the displayed LAN endpoint.
+
+ZKas shares gRPC, enabled JSON WebSocket RPC, and the enabled non-custodial wallet REST API. Kaspa shares gRPC and JSON/Borsh WebSockets. The configured API port numbers are reused on the selected LAN address; the underlying services continue listening on loopback. ZKas wallet requests still need their own X-Wallet-Token. Seed, custodial and administrative wallet REST endpoints remain blocked.
+
+Only clients with private IPv4 addresses on the selected interface's subnet are accepted. The firewall rule allows that subnet on Private/Domain profiles and only the selected executable/address/ports. Connections are unencrypted, with no additional node RPC password; every device on that trusted subnet can use the exposed node RPC. Do not use this on untrusted or shared public Wi-Fi. Do not forward these LAN ports in your router.
+
+No public IP, domain, TLS certificate or router forwarding is needed. Guest Wi-Fi/client isolation may prevent devices communicating. Reserve the node PC's IP in your router to keep addresses stable. If its IP changes, stop sharing, refresh local addresses, select the new address and apply. The status confirms a local listener, not a successful connection from another device.
+
+Apply uses all checked API sharing choices on that chain's page. Stop API sharing closes LAN, HTTPS and Tor connections without stopping the node. To disable only LAN while retaining another sharing mode, stop sharing, uncheck LAN and reapply the remaining choices. Closing the manager leaves sharing running; a reboot stops it. The two chains can share independently or at the same time.
 
 ## Help other nodes sync: public peers
 
@@ -63,7 +80,7 @@ The manager starts a separate Tor process with its own data directory, no SOCKS 
 
 ## Stop/restart and data
 
-Stop API sharing closes the HTTPS/onion listeners and its Tor process. It does not stop the node, wallet or miners and does not change public peer access. Windows API firewall rules can remain while stopped, but no gateway listens. Disabling HTTPS and applying an onion-only configuration removes the manager's HTTPS rule. Uninstall removes both managed public rules. Closing the window leaves sharing running; reboot does not automatically restart sharing.
+Stop API sharing closes the LAN/HTTPS/onion listeners and its Tor process. It does not stop the node, wallet or miners and does not change public peer access. Windows API firewall rules can remain while stopped, but no gateway listens. Disabling HTTPS and applying an onion-only configuration removes the manager's HTTPS rule. Uninstall removes managed peer, HTTPS and LAN rules. Closing the window leaves sharing running; reboot does not automatically restart sharing.
 
 Keep `%LOCALAPPDATA%\ZKasNodeManager\sharing` private. It contains access tokens, TLS keys and onion keys. Back up privately if stable identity matters. Deleting an identity changes its URL and access credentials. This preview has no one-click key revocation/rotation UI: stop sharing before managing keys. Never distribute your installed data folder as the installer package.
 

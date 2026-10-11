@@ -56,7 +56,11 @@ func installKaspa(root string, progress func(string)) error {
 	if e != nil {
 		return e
 	}
+	oldBridge := c.KaspaBridge
 	c.Kaspa, c.KaspaBridge, c.Wallet = b["kaspad.exe"], b["stratum-bridge.exe"], b["kaspa-wallet.exe"]
+	if newer, _ := chains.BridgeNewer(oldBridge.Version, c.KaspaBridge.Version); newer && oldBridge.Check() == nil {
+		c.KaspaBridge = oldBridge
+	}
 	c.Host, e = chainHostPath(root)
 	if e != nil {
 		return e
@@ -78,7 +82,9 @@ func installDual(root string, progress func(string)) error {
 	if e != nil {
 		return e
 	}
-	c.DualBridge = b["stratum-bridge.exe"]
+	if newer, _ := chains.BridgeNewer(c.DualBridge.Version, b["stratum-bridge.exe"].Version); !newer || c.DualBridge.Check() != nil {
+		c.DualBridge = b["stratum-bridge.exe"]
+	}
 	c.Host, e = chainHostPath(root)
 	if e != nil {
 		return e

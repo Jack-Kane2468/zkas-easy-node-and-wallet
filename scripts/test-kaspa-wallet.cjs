@@ -28,6 +28,8 @@ async function q(x){if(died)throw Error('Worker stopped');let timer;const r=awai
   assert.equal(actual.toString(),address);actual.free();key.free();exported.privateKey='';
  }
  await checkKey(r,0,address);
+ assert.deepEqual(await q({op:"verify_recovery",account:r.selected,secret:phrase}),{verified:true});
+ await assert.rejects(q({op:"verify_recovery",account:r.selected,secret:"invalid phrase"}));
  await assert.rejects(q({op:'export_key',account:r.selected,index:0,address,secret:'invalid recovery'}));
  await assert.rejects(q({op:'export_key',account:r.selected,index:1,address,secret:phrase}));
  await assert.rejects(q({op:'export_key',account:'wrong-account',index:0,address,secret:phrase}));
@@ -38,6 +40,7 @@ async function q(x){if(died)throw Error('Worker stopped');let timer;const r=awai
  r=await q({op:'open',filename,password});assert.equal(r.accounts[0].address,address);
  r=await q({op:'address'});const second=r.accounts[0].address;assert.notEqual(second,address);
  await checkKey(r,1,second);
+ assert.deepEqual(await q({op:"verify_recovery",account:r.selected,secret:phrase}),{verified:true});
  await assert.rejects(q({op:'export_key',account:r.selected,index:1,address,secret:phrase}));
  page=await q({op:'addresses'});assert.equal(page.total,3);assert.equal(page.rows[0].address,address);assert.equal(page.rows[1].address,second);assert.equal(page.rows[1].index,1);
  await q({op:'lock'});r=await q({op:'open',filename,password});assert.equal(r.accounts[0].address,second);
@@ -50,7 +53,7 @@ async function q(x){if(died)throw Error('Worker stopped');let timer;const r=awai
  await q({op:'history'});
  await assert.rejects(q({op:'estimate',address,amount:'1'}),/synced local Kaspa node/);
  await assert.rejects(q({op:'send',token:'invented',password}),/synced local Kaspa node/);
- r=await q({op:'create',password,secret:phrase,title:'Account 1',index:1});assert.notEqual(r.accounts[0].address,address);await checkKey(r,0,r.accounts[0].address);
+ r=await q({op:'create',password,secret:phrase,title:'Account 1',index:1});assert.equal(r.accounts[0].accountIndex,1);assert.notEqual(r.accounts[0].address,address);await checkKey(r,0,r.accounts[0].address);
  for(let i=0;i<50;i++)r=await q({op:'address'});
  page=await q({op:'addresses',offset:50});assert.equal(page.total,52);assert.equal(page.rows.length,2);assert.equal(page.rows[0].index,50);assert.equal(page.rows[0].address,r.accounts[0].address);assert.equal(page.rows[1].branch,'Change');
  r=await q({op:'create',password,secret:'0'.repeat(63)+'1',title:'Private key test',index:0});assert(r.accounts[0].address.startsWith('kaspa:'));await checkKey(r,0,r.accounts[0].address,'0'.repeat(63)+'1');
@@ -62,6 +65,8 @@ async function q(x){if(died)throw Error('Worker stopped');let timer;const r=awai
  assert.deepEqual(fs.readFileSync(path.join(folder,filename+'.wallet')),before);
  r=await q({op:'create',password,secret:phrase,passphrase:'public test passphrase',title:'Passphrase test',index:2});
  await checkKey(r,0,r.accounts[0].address,phrase,'public test passphrase');
+ assert.deepEqual(await q({op:'verify_recovery',account:r.selected,secret:phrase,passphrase:'public test passphrase'}),{verified:true});
+ await assert.rejects(q({op:'verify_recovery',account:r.selected,secret:phrase,passphrase:'wrong'}));
  await assert.rejects(q({op:'export_key',account:r.selected,index:0,address:r.accounts[0].address,secret:phrase,passphrase:'wrong'}));
  const list=await q({op:'list'});assert(list.wallets.length>=4);
  console.log('PASS: seed/private-key import, account derivation, encrypted storage, wrong-password rejection, address persistence, backup restoration, history, offline send guards, receiving-key exports and address matching.');

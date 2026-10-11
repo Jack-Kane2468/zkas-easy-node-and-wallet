@@ -23,6 +23,7 @@ func (m *manager) miningTab() TabPage {
 			sharingPanel("MINING SOFTWARE", "Install the connection for your miners", "The mining bridge connects ASIC / Stratum miners to your ZKas node. It is an extra program, installed separately from the node.", walk.RGB(29, 78, 140), walk.RGB(236, 244, 255), []Widget{
 				Label{AssignTo: &m.miningStatus, Text: "Checking mining software…", Font: Font{Bold: true}},
 				PushButton{AssignTo: &m.miningInstall, Text: "Install mining bridge", OnClicked: m.installMiningClicked},
+				PushButton{AssignTo: &m.miningUpdate, Text: "Check for bridge updates…", OnClicked: func() { m.checkBridgeUpdate("zkas") }},
 				PushButton{AssignTo: &m.miningRemove, Text: "Uninstall mining bridge…", OnClicked: m.uninstallMiningClicked},
 				TextLabel{Text: "You can install while the node is syncing. Installation downloads the matching bridge; it does not start mining or open a port. Progress appears in the manager's status area.", MinSize: Size{Width: 240}},
 			}),
@@ -149,6 +150,12 @@ func (m *manager) refreshMining() {
 	if active {
 		text = "Mining bridge running · TCP 5555"
 	}
+	if installed {
+		text += " · " + m.mining.Version
+	} else if alternative {
+		text += " · " + kc.DualBridge.Version
+	}
+	m.miningUpdate.SetEnabled(!m.busy)
 	m.miningStatus.SetText(text)
 	m.miningStart.SetVisible((installed || alternative) && !active)
 	m.miningStart.SetEnabled(!m.busy && !active && !dualActive && matching && m.cfg.Version != "")

@@ -46,7 +46,7 @@ func main() {
 			}
 			return
 		case "--remove-sharing-firewall":
-			if runPS("$ErrorActionPreference='Stop'; Get-NetFirewallRule -Name '"+peerRule+"','"+apiRule+"' -ErrorAction SilentlyContinue | Remove-NetFirewallRule") != nil {
+			if runPS("$ErrorActionPreference='Stop'; Get-NetFirewallRule -Name '"+peerRule+"','"+apiRule+"','"+lanRule+"' -ErrorAction SilentlyContinue | Remove-NetFirewallRule") != nil {
 				os.Exit(1)
 			}
 			return
@@ -165,6 +165,7 @@ func main() {
 }
 
 type manager struct {
+	miningUpdate *walk.PushButton
 	chainsUI
 	kaspaSettingsUI
 	kaspaSharingUI
@@ -365,6 +366,8 @@ func (m *manager) create() error {
 		monitor := &node.InfoMonitor{}
 		defer monitor.Close()
 		var lastWalletPoll time.Time
+		var lastMiningPoll time.Time
+		miningTexts := map[string]string{}
 		for {
 			time.Sleep(2 * time.Second)
 			if m.closed.Load() {
@@ -419,25 +422,9 @@ func (m *manager) create() error {
 					}
 				}
 			}
-			statsText := "Mining bridge is stopped."
-			if tab == 2 && serviceActive(m.root, "mining") {
-				stats, statsErr := node.ReadMiningStats(context.Background())
-				if statsErr != nil {
-					statsText = "Statistics unavailable. If using the previous bridge host, stop ONLY mining, then click Set up / start mining once to enable statistics. Otherwise check mining logs and port 18888. No live data is being displayed."
-				} else {
-					statsText = "Updated " + time.Now().Format("15:04:05") + "\r\n" + stats.Display()
-					if n, e := stratumConnections(); e == nil {
-						statsText = fmt.Sprintf("Connected Stratum TCP sessions: %d\r\n", n) + statsText
-					} else {
-						statsText = "Connected sessions: unavailable\r\n" + statsText
-					}
-				}
-			}
-			if tab == 2 && serviceActive(m.root, "dual") {
-				kc, _ := chains.Read(m.root)
-				if kc.Mode == "zkas" {
-					statsText = "ZKas-only mining is running through the merged-capable bridge. Open its live dashboard below for workers, hashrate and blocks."
-				}
+			if tab == 2 && time.Since(lastMiningPoll) >= 5*time.Second {
+				miningTexts = m.readMiningDashboard()
+				lastMiningPoll = time.Now()
 			}
 
 			m.onUI(func() {
@@ -448,8 +435,8 @@ func (m *manager) create() error {
 				if tab == 1 && m.walletTabs.CurrentIndex() == 1 {
 					m.kwPoll()
 				}
-				if tab == 2 && m.miningStats.Text() != statsText {
-					m.miningStats.SetText(statsText)
+				if tab == 2 && m.mainTabs.CurrentIndex() == 2 {
+					m.applyMiningDashboard(miningTexts)
 				}
 				if m.walletStatus.Text() != walletText {
 					m.walletStatus.SetText(walletText)

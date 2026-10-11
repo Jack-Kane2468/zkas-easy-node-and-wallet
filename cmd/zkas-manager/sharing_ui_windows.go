@@ -14,6 +14,7 @@ import (
 )
 
 type sharingUI struct {
+	zLAN                                        lanUI
 	shared                                      node.SharingConfig
 	shareHTTPS, sharePublic, peerPublic         *walk.CheckBox
 	shareHost, shareTorExe, shareCert, shareKey *walk.LineEdit
@@ -41,8 +42,9 @@ func (m *manager) sharingTab() TabPage {
 	return TabPage{Title: "Sharing", Layout: VBox{MarginsZero: true}, Children: []Widget{
 		ScrollView{Layout: VBox{Spacing: 18}, Children: []Widget{
 			Label{Text: "What do you want to share?", Font: Font{PointSize: 16, Bold: true}},
-			TextLabel{Text: "Choose any of the three options below. They are separate choices, not steps. Leave an option off if you do not need it.", MinSize: Size{Width: 240}},
+			TextLabel{Text: "Choose any of the options below. They are separate choices, not steps. Leave an option off if you do not need it.", MinSize: Size{Width: 240}},
 			Label{AssignTo: &m.shareState, Text: "Sharing is off until you apply it."},
+			m.lanPanel(false),
 			sharingPanel("OTHER NODES", "Help other nodes sync", "For other node operators. This does not connect wallets or miners.", walk.RGB(29, 78, 140), walk.RGB(236, 244, 255), []Widget{
 				CheckBox{AssignTo: &m.peerPublic, Text: "Allow other nodes to connect to my node", Checked: m.cfg.PublicP2P},
 				PushButton{AssignTo: &m.peerApply, Text: "Save node-sharing choice", OnClicked: m.applyPeers},
@@ -69,11 +71,11 @@ func (m *manager) sharingTab() TabPage {
 				PushButton{Text: "Open official Tor download page", OnClicked: func() { openExternal("https://www.torproject.org/download/tor/") }},
 				TextLabel{MinSize: Size{Width: 240}, Text: "Personal = only people with your client key. Public = anyone with the onion URL. Wallet apps must support Tor. Apply this choice using the wallet-sharing controls below.\nThis protects incoming wallet connections only; the node still makes ordinary internet connections to other nodes."},
 			}),
-			sharingPanel("APPLY / CONNECT", "Wallet-sharing controls", "These controls apply to HTTPS and Tor above. Node sharing has its own Save button in the blue panel.", walk.RGB(55, 65, 81), walk.RGB(242, 244, 247), []Widget{
-				Label{Text: "After choosing HTTPS and/or Tor:", Font: Font{Bold: true}},
+			sharingPanel("APPLY / CONNECT", "Wallet-sharing controls", "These controls apply to LAN, HTTPS and Tor above. Node sharing has its own Save button in the blue panel.", walk.RGB(55, 65, 81), walk.RGB(242, 244, 247), []Widget{
+				Label{Text: "After choosing LAN, HTTPS and/or Tor:", Font: Font{Bold: true}},
 				Composite{Layout: VBox{MarginsZero: true}, Children: []Widget{
 					PushButton{AssignTo: &m.shareStart, Text: "Apply choices / start wallet sharing", OnClicked: m.startSharingClicked},
-					PushButton{AssignTo: &m.shareStop, Text: "Stop HTTPS / Tor access", OnClicked: func() { m.action(func() error { return stopOne(m.root, "sharing") }) }},
+					PushButton{AssignTo: &m.shareStop, Text: "Stop LAN / HTTPS / Tor access", OnClicked: func() { m.action(func() error { return stopOne(m.root, "sharing") }) }},
 				}},
 				Label{Text: "Your saved connection details", Font: Font{PointSize: 11, Bold: true}},
 				TextLabel{Text: "After starting, copy the address for your wallet app. These are saved settings; availability from the internet is not tested.", MinSize: Size{Width: 240}},
@@ -99,7 +101,7 @@ func (m *manager) sharingTab() TabPage {
 				TextLabel{MinSize: Size{Width: 240}, Text: "Personal onion credentials go in a .auth_private file in the client's ClientOnionAuthDir. Treat them as a password. Compatible Tor clients may accept the final key directly."},
 				PushButton{Text: "Open sharing files (keep keys private)", OnClicked: func() { m.open(filepath.Join(m.root, "sharing")) }},
 				PushButton{Text: "Show setup / URL guide", OnClicked: func() { walk.MsgBox(m.window, "Public addresses and URLs", sharingGuide, walk.MsgBoxIconInformation) }},
-				TextLabel{MinSize: Size{Width: 240}, Text: "Closing the manager leaves sharing running. Stop API sharing closes HTTPS/onion access but does not change peer access. Sharing does not auto-start after a reboot."},
+				TextLabel{MinSize: Size{Width: 240}, Text: "Closing the manager leaves sharing running. Stop API sharing closes LAN/HTTPS/onion access but does not change peer access. Sharing does not auto-start after a reboot."},
 			}),
 		}},
 	}}
@@ -133,7 +135,7 @@ Download/extract the official Tor Expert Bundle and choose tor.exe. Select perso
 Personal mode requires the copied client credentials in a .auth_private file under the client's ClientOnionAuthDir. Public mode needs no client key. Modes have different addresses; keys stay on this PC between launches.
 
 APIs
-Remote sharing exposes wallet REST only. gRPC, JSON wRPC, mining metrics, and seed/custodial/admin endpoints are not exposed. Applications retain their own setting names and X-Wallet-Token. For personal HTTPS also send Authorization: Bearer YOUR_ACCESS_TOKEN. Browser CORS access is disabled.`
+Internet and Tor sharing expose wallet REST only. Local-network access separately shares gRPC, enabled JSON wRPC and the non-custodial wallet REST API. Mining metrics and seed/custodial/admin wallet endpoints are not shared. Applications retain their own setting names and X-Wallet-Token. For personal HTTPS also send Authorization: Bearer YOUR_ACCESS_TOKEN. Browser CORS access is disabled.`
 
 func openExternal(url string) {
 	cmd := exec.Command("rundll32.exe", "url.dll,FileProtocolHandler", url)
@@ -144,6 +146,7 @@ func openExternal(url string) {
 }
 func (m *manager) readSharingSettings() (node.SharingConfig, error) {
 	s := m.shared
+	m.zLAN.read(&s)
 	s.HTTPS = m.shareHTTPS.Checked()
 	s.PublicAPI = m.sharePublic.Checked()
 	s.Host = strings.TrimSpace(m.shareHost.Text())
@@ -169,6 +172,9 @@ func (m *manager) startSharingClicked() {
 	}
 	c := m.cfg
 	summary := "Start the selected API sharing services? Your node and wallet stay running.\n\n"
+	if s.LAN {
+		summary += "Local-network access on " + s.LANIP + ". Devices on this subnet can use node APIs. Windows may request firewall approval; no router forwarding is needed.\n"
+	}
 	if s.HTTPS {
 		summary += s.URL() + "\nWindows will request firewall approval. Router forwarding is still needed.\n"
 		if s.PublicAPI {
@@ -293,11 +299,12 @@ func (m *manager) refreshSharing() {
 		state = "API sharing error: " + string(b)
 	}
 	m.shareState.SetText(state)
+	m.refreshLAN(false, active)
 	m.shareDetails.SetText(m.sharingDetails())
 	for _, w := range []walk.Widget{m.shareHTTPS, m.shareHost, m.sharePort, m.sharePublic, m.shareTorMode, m.shareTorExe, m.shareCert, m.shareKey} {
 		w.SetEnabled(!m.busy && !active)
 	}
-	m.shareStart.SetEnabled(!m.busy && !active)
+	m.shareStart.SetEnabled(!m.busy && !active && serviceActive(m.root, "node") && (!m.cfg.EnableWallet || serviceActive(m.root, "wallet")))
 	m.shareStop.SetEnabled(!m.busy && active)
 	m.peerApply.SetEnabled(!m.busy && !hostActive(m.root))
 	m.peerPublic.SetEnabled(!m.busy && !hostActive(m.root))

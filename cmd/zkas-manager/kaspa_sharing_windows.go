@@ -15,6 +15,7 @@ import (
 
 const kaspaOnionPort = 18503
 const kaspaPeerRule = "ZKasNodeManager-Kaspa-Peers"
+const kaspaLANRule = "ZKasNodeManager-Kaspa-LAN"
 const kaspaAPIRule = "ZKasNodeManager-Kaspa-WSS"
 
 func kaspaAccessRoot(root string) string { return filepath.Join(root, "kaspa-access") }
@@ -69,8 +70,8 @@ func startKaspaSharing(root string, s node.SharingConfig) error {
 	if !serviceActive(root, "kaspa") {
 		return fmt.Errorf("Start Kaspa in Overview first")
 	}
-	if !s.HTTPS && s.TorMode == "off" {
-		return fmt.Errorf("Choose HTTPS or Tor first")
+	if !s.LAN && !s.HTTPS && s.TorMode == "off" {
+		return fmt.Errorf("Choose local-network access, HTTPS or Tor first")
 	}
 	if e := validateKaspaSharing(root, s); e != nil {
 		return e
@@ -98,7 +99,7 @@ func startKaspaSharing(root string, s node.SharingConfig) error {
 	if e = node.SaveSharing(k, s); e != nil {
 		return e
 	}
-	if s.HTTPS || previous.HTTPS {
+	if s.LAN || previous.LAN || s.HTTPS || previous.HTTPS {
 		if e = applyKaspaFirewall(root, false); e != nil {
 			return e
 		}
@@ -153,13 +154,14 @@ func removeKaspaAccessRules(root string) error {
 	if e != nil {
 		return e
 	}
-	if !c.PublicP2P && !s.HTTPS {
+	if !c.PublicP2P && !s.HTTPS && !s.LAN {
 		return nil
 	}
 	if e = applyKaspaFirewall(root, true); e != nil {
 		return e
 	}
 	s.HTTPS = false
+	s.LAN = false
 	s.TorMode = "off"
 	if e = node.SaveSharing(kaspaAccessRoot(root), s); e != nil {
 		return e
@@ -181,7 +183,7 @@ func kaspaFirewallHelper(remove bool) error {
 	if e != nil {
 		return e
 	}
-	script := "$ErrorActionPreference='Stop';Get-NetFirewallRule -Name '" + kaspaPeerRule + "','" + kaspaAPIRule + "' -ErrorAction SilentlyContinue | Remove-NetFirewallRule;"
+	script := "$ErrorActionPreference='Stop';Get-NetFirewallRule -Name '" + kaspaPeerRule + "','" + kaspaAPIRule + "','" + kaspaLANRule + "' -ErrorAction SilentlyContinue | Remove-NetFirewallRule;"
 	if !remove {
 		if e = c.ValidateNode(); e != nil {
 			return e
@@ -191,6 +193,12 @@ func kaspaFirewallHelper(remove bool) error {
 				return e
 			}
 			script += "New-NetFirewallRule -Name '" + kaspaPeerRule + "' -DisplayName 'Kaspa public peers' -Direction Inbound -Action Allow -Protocol TCP -LocalPort " + strconv.Itoa(c.P2P) + " -Profile Any -RemoteAddress Any -Program " + psQuote(c.Kaspa.Path) + " | Out-Null;"
+		}
+		if s.LAN {
+			if e = validateKaspaSharing(root, s); e != nil {
+				return e
+			}
+			script += lanFirewallScript(kaspaLANRule, s, kLANRoutes(c))
 		}
 		if s.HTTPS {
 			if e = validateKaspaSharing(root, s); e != nil {

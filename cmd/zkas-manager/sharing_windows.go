@@ -19,6 +19,7 @@ import (
 
 	"github.com/Microsoft/go-winio"
 	"golang.org/x/sys/windows"
+	"zkas-node-manager/internal/lanshare"
 	"zkas-node-manager/internal/node"
 )
 
@@ -55,6 +56,7 @@ func sharingHostPath(root string) (string, error) {
 }
 
 const peerRule = "ZKasNodeManager-Peers-16811"
+const lanRule = "ZKasNodeManager-LAN"
 const apiRule = "ZKasNodeManager-HTTPS"
 
 func sharingFirewallHelper() error {
@@ -71,7 +73,7 @@ func sharingFirewallHelper() error {
 	if e != nil {
 		return e
 	}
-	script := "$ErrorActionPreference='Stop';Get-NetFirewallRule -Name '" + peerRule + "','" + apiRule + "' -ErrorAction SilentlyContinue | Remove-NetFirewallRule;"
+	script := "$ErrorActionPreference='Stop';Get-NetFirewallRule -Name '" + peerRule + "','" + apiRule + "','" + lanRule + "' -ErrorAction SilentlyContinue | Remove-NetFirewallRule;"
 	if c.PublicP2P {
 		if e = node.CheckBinary(c); e != nil {
 			return e
@@ -86,6 +88,12 @@ func sharingFirewallHelper() error {
 			return fmt.Errorf("sharing host mismatch")
 		}
 		script += "New-NetFirewallRule -Name '" + apiRule + "' -DisplayName 'ZKas HTTPS API' -Direction Inbound -Action Allow -Protocol TCP -LocalPort " + strconv.Itoa(s.Port) + " -Profile Any -RemoteAddress Any -Program " + psQuote(s.HostExecutable) + " | Out-Null;"
+	}
+	if s.LAN {
+		if e = s.Validate(c); e != nil {
+			return e
+		}
+		script += lanFirewallScript(lanRule, s, zLANRoutes(c))
 	}
 	e = runPS(script)
 	if e != nil {
@@ -103,11 +111,14 @@ func startSharing(root string, c node.Config, s node.SharingConfig) error {
 	if e := s.Validate(c); e != nil {
 		return e
 	}
-	if !s.HTTPS && s.TorMode == "off" {
-		return fmt.Errorf("select HTTPS or an onion mode first")
+	if !s.LAN && !s.HTTPS && s.TorMode == "off" {
+		return fmt.Errorf("select local-network access, HTTPS or an onion mode first")
 	}
-	if !serviceActive(root, "wallet") {
+	if (s.HTTPS || s.TorMode != "off" || c.EnableWallet) && !serviceActive(root, "wallet") {
 		return fmt.Errorf("start the wallet API first")
+	}
+	if s.LAN && !serviceActive(root, "node") {
+		return fmt.Errorf("Start the ZKas node in Overview first")
 	}
 	if s.HTTPS {
 		if _, _, _, e := s.EnsureCertificate(root); e != nil {
@@ -130,7 +141,7 @@ func startSharing(root string, c node.Config, s node.SharingConfig) error {
 	if e := node.SaveSharing(root, s); e != nil {
 		return e
 	}
-	if s.HTTPS || oldSharing.HTTPS {
+	if s.LAN || oldSharing.LAN || s.HTTPS || oldSharing.HTTPS {
 		if e := applySharingFirewall(s); e != nil {
 			return e
 		}
@@ -170,12 +181,19 @@ func runSharingHost(root string) error {
 	if e = s.Validate(c); e != nil {
 		return e
 	}
-	if !s.HTTPS && s.TorMode == "off" {
+	if !s.LAN && !s.HTTPS && s.TorMode == "off" {
 		return fmt.Errorf("sharing is disabled")
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	errs := make(chan error, 4)
+	if s.LAN {
+		lan, e := lanshare.Start(ctx, s.LANIP, zLANRoutes(c), errs)
+		if e != nil {
+			return e
+		}
+		defer lan.Close()
+	}
 	servers := []*http.Server{}
 	launch := func(addr string, handler http.Handler, tlsOn bool) error {
 		ln, err := net.Listen("tcp", addr)

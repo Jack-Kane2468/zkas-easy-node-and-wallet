@@ -38,4 +38,4 @@ foreach ($match in $matches) {
     if (-not (Test-Path $file -PathType Leaf)) { throw "Missing runtime file: $file" }
     if ((Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant() -ne $match.Groups[2].Value) { throw "Runtime checksum mismatch: $file" }
 }
-Write-Host 'All nine wallet runtime files verified.'
+Write-Host 'All ten wallet runtime files verified.'

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -27,19 +28,28 @@ type MiningBlock struct {
 	Timestamp string `json:"timestamp"`
 }
 type MiningStats struct {
-	ActiveWorkers int            `json:"activeWorkers"`
-	TotalBlocks   uint64         `json:"totalBlocks"`
-	TotalShares   uint64         `json:"totalShares"`
-	Workers       []MiningWorker `json:"workers"`
-	Blocks        []MiningBlock  `json:"blocks"`
-	BridgeUptime  uint64         `json:"bridgeUptime"`
+	uptimeReported bool
+	ActiveWorkers  int            `json:"activeWorkers"`
+	TotalKasBlocks *uint64        `json:"totalKasBlocks"`
+	TotalBlocks    uint64         `json:"totalBlocks"`
+	TotalShares    uint64         `json:"totalShares"`
+	Workers        []MiningWorker `json:"workers"`
+	Blocks         []MiningBlock  `json:"blocks"`
+	BridgeUptime   uint64         `json:"bridgeUptime"`
 }
 
 func ReadMiningStats(ctx context.Context) (MiningStats, error) {
+	return ReadMiningStatsPort(ctx, MiningStatsPort)
+}
+
+func ReadMiningStatsPort(ctx context.Context, port int) (MiningStats, error) {
 	var stats MiningStats
+	if port != 18888 && port != 18889 {
+		return stats, fmt.Errorf("unsupported mining statistics port")
+	}
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("http://127.0.0.1:%d/api/stats", MiningStatsPort), nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("http://127.0.0.1:%d/api/stats", port), nil)
 	if err != nil {
 		return stats, err
 	}
@@ -64,12 +74,13 @@ func DecodeMiningStats(reader io.Reader) (MiningStats, error) {
 		return stats, err
 	}
 	for _, key := range []string{"activeWorkers", "totalBlocks", "totalShares", "workers", "blocks"} {
-		if _, ok := raw[key]; !ok {
+		if v, ok := raw[key]; !ok || string(v) == "null" {
 			return stats, fmt.Errorf("bridge statistics missing %s", key)
 		}
 	}
 	b, _ := json.Marshal(raw)
 	err := json.Unmarshal(b, &stats)
+	stats.uptimeReported = len(raw["bridgeUptime"]) > 0 && string(raw["bridgeUptime"]) != "null"
 	return stats, err
 }
 func (s MiningStats) Display() string {
@@ -94,4 +105,54 @@ func (s MiningStats) Display() string {
 		out += fmt.Sprintf("%s · %s\r\n%s\r\n", b.Timestamp, b.Worker, b.Hash)
 	}
 	return out
+}
+
+// Dashboard is deliberately bounded; it never builds an ever-growing history.
+func (s MiningStats) Dashboard(mode string) string {
+	rate := 0.0
+	var stale, invalid uint64
+	for _, w := range s.Workers {
+		rate += w.Hashrate
+		stale += w.Stale
+		invalid += w.Invalid
+	}
+	uptime := "Not reported"
+	if s.uptimeReported {
+		uptime = (time.Duration(s.BridgeUptime) * time.Second).String()
+	}
+	var out strings.Builder
+	fmt.Fprintf(&out, "Recently active workers: %d    Estimated hashrate: %.3f GH/s\r\nAccepted shares (bridge): %d    Uptime: %s\r\n", s.ActiveWorkers, rate, s.TotalShares, uptime)
+	if mode == "merged" {
+		kas := "Not reported"
+		if s.TotalKasBlocks != nil {
+			kas = fmt.Sprint(*s.TotalKasBlocks)
+		}
+		fmt.Fprintf(&out, "Blocks reported — ZKas: %d    Kaspa: %s\r\n", s.TotalBlocks, kas)
+	} else {
+		chain := "ZKas"
+		if mode == "kaspa" {
+			chain = "Kaspa"
+		}
+		fmt.Fprintf(&out, "%s blocks reported: %d\r\n", chain, s.TotalBlocks)
+	}
+	fmt.Fprintf(&out, "Recent workers' shares — stale: %d    invalid: %d\r\n\r\nWORKERS\r\n", stale, invalid)
+	if len(s.Workers) == 0 {
+		out.WriteString("No recent worker activity reported yet.\r\n")
+	}
+	for i, w := range s.Workers {
+		if i >= 100 {
+			out.WriteString("More than 100 workers; open the full dashboard for the complete list.\r\n")
+			break
+		}
+		name := strings.TrimSpace(w.Worker)
+		if name == "" {
+			name = "Unnamed worker"
+		}
+		status := w.Status
+		if status == "" {
+			status = "status not reported"
+		}
+		fmt.Fprintf(&out, "%s — %s — %.3f GH/s\r\n  Accepted %d | stale %d | invalid %d | blocks %d\r\n", name, status, w.Hashrate, w.Shares, w.Stale, w.Invalid, w.Blocks)
+	}
+	return out.String()
 }

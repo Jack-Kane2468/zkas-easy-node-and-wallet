@@ -34,3 +34,19 @@ Upstream statistics source: https://github.com/firecash/zkas-rusty/blob/zkas-v1.
 
 ## Uninstall
 Use **Uninstall mining bridge…** to stop miners, remove bridge files and remove its Windows TCP 5555 firewall rule. Node, wallet and sharing services remain running. Payout/worker preferences remain for reinstalling. The main Settings → Uninstall includes this same removal. If Windows firewall approval is declined, removal stops and reports the error; retry when ready.
+
+## Statistics inside the manager
+
+Each Mining subtab includes a live statistics panel. It reads the running bridge directly, with no browser required. It displays TCP session count separately from recently active workers, share-based estimated hashrate, bridge accepted shares, recent-worker stale/invalid shares, uptime and reported blocks. Merged mode separates ZKas and Kaspa block totals. Counters can reset at bridge restart; reported blocks are not guaranteed paid rewards.
+
+Updates run about every six seconds only while Mining is visible and the manager is not minimized. A failed request clears live values and reports unavailable data. The manager lists at most 100 workers; use Open full mining dashboard for more. It does not accumulate a statistics database.
+
+For merged mining, the optional worker field produces `zkas:YOUR_ADDRESS.miner1` in the username. Password stays `kaspa:YOUR_ADDRESS`. Use a different name for each miner. Names may contain 1–32 letters, digits, underscores or hyphens; leave it empty to use the address alone. This field prepares miner settings; each miner must use them in its own configuration.
+
+## Bridge updates
+
+Each Mining subtab includes **Check for bridge updates…**. The manager shows the installed and available versions and asks before downloading. Kaspa uses the stable kaspanet/rusty-kaspa Windows release; Merged uses firecash/solo-dual-mode. The original ZKas-only bridge is updated from the current ZKas core package. If ZKas-only uses the merged-capable bridge, its update checks the merged bridge release instead.
+
+Downloads must match the publisher’s SHA-256. A failed download leaves the running bridge in place. A successful update briefly restarts the selected bridge only if it was running, retaining saved payout/worker/port/LAN settings. If restart fails, the manager reports the failure; inspect Overview and restart mining once both required nodes are ready. An already stopped bridge remains stopped. Older versions are never selected as an update.
+
+For ZKrise, update ZKas core and the enabled wallet backend through Overview before updating the bridge. The manager’s bundled signer is separate from those components.

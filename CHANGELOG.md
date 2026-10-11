@@ -1,3 +1,27 @@
+# 0.9.9-preview — Mining bridge updates and ZKrise wallet support
+
+Each Mining page now has **Check for bridge updates…**, with installed version information. Kaspa and merged bridges check their official GitHub stable releases; the original ZKas-only bridge follows the installed ZKas core release. Downloads are verified before a running bridge is stopped. An updated running bridge restarts with saved addresses, worker names, ports and LAN settings. Nodes and wallets continue running during a bridge-only update.
+
+New merged bridge installations use solo-dual-mode v1.0.12. The bundled official wallet signer is updated to zkas-wallet v1.0.47, and OVK viewing supports the named-anchor bundle format introduced by ZKas core v1.0.11. Merged-mining payout field order is unchanged: ZKas address as username (optional dot-suffixed worker), Kaspa address as password.
+
+For ZKrise, update the manager, then use **Overview → Check node updates** for the ZKas node and enabled wallet backend, then **Mining → Check for bridge updates…** for the bridge in use. Updating the manager alone does not update those separately installed components.
+
+Portable tests, offline wallet derivation/viewing vectors, Windows cross-build/static checks and package verification pass. Native Windows operation, physical miners and live payments were not tested in the build environment. See VALIDATION.md.
+
+# 0.9.8-preview
+
+- Show live mining statistics inside ZKas, Kaspa and Merged mining pages: TCP sessions, recent workers, estimated hashrate, accepted shares, stale/invalid shares and block counts.
+- Show separate ZKas and Kaspa block counts for merged mining; unavailable counters are labelled rather than guessed.
+- Read the active bridge's statistics port, including ZKas-only running through the merged-capable bridge. Poll only while Mining is visible, with bounded output and request timeouts.
+- Add an optional merged-mining worker name to copied miner settings. Username remains the ZKas address and password remains the Kaspa address.
+
+# 0.9.7-preview
+
+- Export the selected Kaspa wallet's recovery phrase after vault-password confirmation and account verification; include its BIP39 passphrase when present.
+- Separate local-network sharing controls for ZKas and Kaspa, with selectable local IPv4 address, running/stopped state and copyable API endpoints.
+- LAN access is limited to the selected private subnet and Windows Private/Domain profiles. Stop sharing closes connections; uninstall removes its firewall rules.
+- Keep the Logs row inside the README's tab table.
+
 # 0.9.6-preview
 
 - ZKas wallet displays the backend’s note count alongside balance and scan progress.

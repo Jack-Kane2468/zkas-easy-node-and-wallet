@@ -880,7 +880,7 @@ SOFTWARE.
 
 Node.js 24.21.0: wallet-runtime/NODE-LICENSE.txt includes its dependencies' notices.
 
-The upstream ZKas signer is pinned to firecash/zkas-wallet commit 3668c84c14691a1487eac003daba9ff68af78065. Its ISC attribution is in wallet-runtime/SIGNER-LICENSE.txt. Retain upstream dependency attribution when rebuilding it.
+The upstream ZKas signer is pinned to firecash/zkas-wallet commit 8689fb4da9fa399c0a0f68ce49e11be98ad064f0. Its ISC attribution is in wallet-runtime/SIGNER-LICENSE.txt. Retain upstream dependency attribution when rebuilding it.
 
 The manager adapters signer.mjs and view-tools.mjs are MIT licensed. view-tools/src is ISC licensed under view-tools/LICENSE. Its full Rust dependency notices (including Orchard, Zcash and Rust standard-library notices) are in view-tools/THIRD-PARTY-LICENSES, also copied to THIRD-PARTY-LICENSES in runnable releases. See wallet-runtime/PROVENANCE.md for the prebuilt runtime's provenance.
 
@@ -889,6 +889,6 @@ The manifest build tool github.com/akavel/rsrc v0.10.2 is MIT licensed; it is no
 ## Optional Kaspa / merged mining downloads
 
 - kaspanet/rusty-kaspa v2.1.0: official kaspad.exe and stratum-bridge.exe (ISC). https://github.com/kaspanet/rusty-kaspa/tree/v2.1.0
-- firecash/solo-dual-mode v1.0.11: merged bridge; consult upstream license notices. https://github.com/firecash/solo-dual-mode/tree/v1.0.11
+- firecash/solo-dual-mode v1.0.12: merged bridge; consult upstream license notices. https://github.com/firecash/solo-dual-mode/tree/v1.0.12
 
 Immutable archive hashes are pinned in internal/chains/chains.go. Downloaded scripts do not execute. Checksums provide integrity relative to this manager build, not code signing.

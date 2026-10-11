@@ -20,6 +20,7 @@ import (
 	"github.com/Microsoft/go-winio"
 	"golang.org/x/sys/windows"
 	"zkas-node-manager/internal/chains"
+	"zkas-node-manager/internal/lanshare"
 	"zkas-node-manager/internal/node"
 )
 
@@ -42,12 +43,19 @@ func runKaspaSharingHost(managerRoot string) error {
 	if e = s.Validate(c); e != nil {
 		return e
 	}
-	if !s.HTTPS && s.TorMode == "off" {
+	if !s.LAN && !s.HTTPS && s.TorMode == "off" {
 		return fmt.Errorf("sharing is disabled")
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	errs := make(chan error, 4)
+	if s.LAN {
+		lan, e := lanshare.Start(ctx, s.LANIP, kLANRoutes(kc), errs)
+		if e != nil {
+			return e
+		}
+		defer lan.Close()
+	}
 	servers := []*http.Server{}
 	launch := func(addr string, handler http.Handler, tlsOn bool) error {
 		ln, err := net.Listen("tcp", addr)

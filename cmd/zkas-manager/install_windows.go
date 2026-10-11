@@ -147,7 +147,7 @@ func uninstall(root string) error {
 	if sharingErr != nil {
 		return sharingErr
 	}
-	if c.PublicP2P || s.HTTPS {
+	if c.PublicP2P || s.HTTPS || s.LAN {
 		s.HostExecutable, e = sharingHostPath(root)
 		if e != nil {
 			return e
@@ -157,6 +157,7 @@ func uninstall(root string) error {
 		}
 	}
 	s.HTTPS = false
+	s.LAN = false
 	s.TorMode = "off"
 	s.HostExecutable = ""
 	c.PublicP2P = false

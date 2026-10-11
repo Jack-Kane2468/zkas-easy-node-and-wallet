@@ -21,7 +21,7 @@ wallet.addEventListener(({type,data}) => {
  if(type==='disconnect') { balances.clear(); pending=null; }
 });
 const money = v => sdk.sompiToKaspaString(v ?? 0n);
-function accounts(list) { return list.map(a=>({id:String(a.accountId),name:a.accountName||'Account',address:(a.receiveAddress?.prefix ? a.receiveAddress.prefix+':'+a.receiveAddress.payload : String(a.receiveAddress||'')),kind:String(a.kind),index:a.derivationIndexes?.receive??0})); }
+function accounts(list) { return list.map(a=>({id:String(a.accountId),name:a.accountName||'Account',address:(a.receiveAddress?.prefix ? a.receiveAddress.prefix+':'+a.receiveAddress.payload : String(a.receiveAddress||'')),kind:String(a.kind),index:a.derivationIndexes?.receive??0,accountIndex:Number(a.accountIndex??0)})); }
 async function state() {
  const list = wallet.isOpen ? accounts((await wallet.accountsEnumerate({})).accountDescriptors) : [];
  const b = balances.get(selected);
@@ -87,13 +87,16 @@ async function run(q) {
   }else{page.online=false;page.rows=page.rows.map(r=>({...r,known:false,utxos:[]}));}
   return page;
  }
+ case 'verify_recovery':
  case 'export_key': {
   requireOpen();
+  const verifying=q.op==='verify_recovery';if(verifying)q.index=0;
   if(q.account!==selected||!Number.isInteger(q.index)||q.index<0||q.index>2147483647)throw Error('Choose a receiving address from the selected account.');
   const descriptors=(await wallet.accountsEnumerate({})).accountDescriptors;
   let mnemonic,xprv,generator,key,derived;
   try{
    const d=descriptors.find(a=>String(a.accountId)===selected);if(!d)throw Error('Selected account is unavailable.');
+   if(verifying){const page=addressPage(sdk,d,0);q.address=page.rows.find(r=>r.branch==='Receive'&&r.index===0)?.address;}
    const kind=String(d.kind),raw=String(q.secret||'').trim().replace(/\s+/g,' ');
    if(kind.includes('keypair')){
     if(q.index!==0||!/^[a-fA-F0-9]{64}$/.test(raw))throw Error('Use this address’s original 64-character private key.');
@@ -108,6 +111,7 @@ async function run(q) {
    }else{throw Error('Private-key export is unavailable for this account type.');}
    derived=key.toAddress('mainnet');
    if(addressText(derived)!==q.address)throw Error('The recovery secret does not match this receiving address.');
+   if(verifying)return {verified:true};
    return {privateKey:key.toString(),address:q.address,index:q.index};
   }catch(e){throw Error('Key export failed: check the recovery phrase/key, account and address. No key was exported.');}
   finally{for(const x of [derived,key,generator,xprv,mnemonic])if(x?.free)x.free();for(const d of descriptors)if(d.kind?.free)d.kind.free();}

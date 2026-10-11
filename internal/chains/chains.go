@@ -19,9 +19,9 @@ import (
 )
 
 const KaspaVersion = "v2.1.0"
-const DualVersion = "v1.0.11"
+const DualVersion = "v1.0.12"
 const KaspaSHA = "fb25743a4b432d376c4ca49d8799769dbc6d5b070f0b502350ce32cfdb38ec0f"
-const DualSHA = "f3ab6de48ae0da79c1f22073444e7d5a3a4caf047dbdf9fb0f68b772d2416610"
+const DualSHA = "dc95845ae7e8363d3c52e6fc99b8bccdb50fe541b980b7c34192d5ea289e7ecd"
 const KaspaURL = "https://github.com/kaspanet/rusty-kaspa/releases/download/" + KaspaVersion + "/rusty-kaspa-" + KaspaVersion + "-win64.zip"
 const DualURL = "https://github.com/firecash/solo-dual-mode/releases/download/" + DualVersion + "/solo-dual-mode-windows-x64.zip"
 
@@ -47,6 +47,7 @@ type Config struct {
 	DualBridge   Binary  `json:"dualBridge"`
 	Host         string  `json:"host"`
 	Mode         string  `json:"mode"`
+	MergedWorker string  `json:"mergedWorker,omitempty"`
 	KaspaAddress string  `json:"kaspaAddress"`
 	ZKasAddress  string  `json:"zkasAddress"`
 	LAN          bool    `json:"lan"`
@@ -151,6 +152,9 @@ func AddressShape(a, p string) bool {
 	return strings.HasPrefix(a, p+":") && addressBody.MatchString(strings.TrimPrefix(a, p+":"))
 }
 func (c Config) ValidateMining() error {
+	if c.Mode == "merged" && c.MergedWorker != "" && !regexp.MustCompile(`^[A-Za-z0-9_-]{1,32}$`).MatchString(c.MergedWorker) {
+		return errors.New("Worker name must be 1–32 letters, numbers, underscores or hyphens")
+	}
 	if c.Mode != "merged" && c.Mode != "kaspa" && c.Mode != "zkas" {
 		return errors.New("Choose merged mining, Kaspa only or ZKas only")
 	}
@@ -205,6 +209,9 @@ func Install(ctx context.Context, root string, dual bool, progress func(string),
 	if len(namesOverride) > 0 {
 		names = namesOverride
 	}
+	return installArchive(ctx, root, url, hash, version, folder, names, progress)
+}
+func installArchive(ctx context.Context, root, url, hash, version, folder string, names []string, progress func(string)) (map[string]Binary, error) {
 	progress("Downloading " + folder + "…")
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Minute)
 	defer cancel()

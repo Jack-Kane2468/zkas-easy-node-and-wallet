@@ -11,6 +11,7 @@ import (
 )
 
 type kaspaSharingUI struct {
+	kLAN                                lanUI
 	kPeer, kHTTPS, kPublic              *walk.CheckBox
 	kHost, kTorExe, kCert, kKey         *walk.LineEdit
 	kSharePort                          *walk.NumberEdit
@@ -37,6 +38,7 @@ func (m *manager) kaspaSharingTab() TabPage {
 	}
 	return TabPage{Title: "Kaspa", Layout: VBox{MarginsZero: true}, Children: []Widget{ScrollView{Layout: VBox{Spacing: 18}, Children: []Widget{
 		Label{Text: "What do you want to share?", Font: Font{PointSize: 16, Bold: true}}, TextLabel{Text: "These are separate choices, not steps. Peer sharing connects other nodes; wallet/app sharing exposes Kaspa WebSocket RPC. Your wallet keys stay on your device.", MinSize: Size{Width: 240}}, Label{AssignTo: &m.kShareState},
+		m.lanPanel(true),
 		sharingPanel("OTHER NODES", "Help other Kaspa nodes sync", "Peer sharing does not expose a wallet or miner connection.", walk.RGB(29, 78, 140), walk.RGB(236, 244, 255), []Widget{
 			CheckBox{AssignTo: &m.kPeer, Text: "Allow other Kaspa nodes to connect", Checked: c.PublicP2P},
 			PushButton{AssignTo: &m.kPeerApply, Text: "Save node-sharing choice", OnClicked: m.saveKaspaPeers},
@@ -57,10 +59,10 @@ func (m *manager) kaspaSharingTab() TabPage {
 			PushButton{Text: "Open official Tor download page", OnClicked: func() { openExternal("https://www.torproject.org/download/tor/") }},
 			TextLabel{Text: "Use the Tor Expert Bundle with its supporting DLLs. Clients need Tor support. Personal mode requires client authorization. This protects incoming wallet/app connections; Kaspa's outbound peer connections still use the ordinary internet.", MinSize: Size{Width: 240}},
 		}),
-		sharingPanel("APPLY / CONNECT", "Kaspa wallet/app sharing", "These controls apply HTTPS and Tor; peer access uses the separate Save button above.", walk.RGB(55, 65, 81), walk.RGB(242, 244, 247), []Widget{
+		sharingPanel("APPLY / CONNECT", "Kaspa wallet/app sharing", "These controls apply LAN, HTTPS and Tor; peer access uses the separate Save button above.", walk.RGB(55, 65, 81), walk.RGB(242, 244, 247), []Widget{
 			PushButton{AssignTo: &m.kShareStart, Text: "Apply choices / start Kaspa sharing", OnClicked: m.startKaspaSharingClicked},
-			PushButton{AssignTo: &m.kShareStop, Text: "Stop Kaspa HTTPS / Tor access", OnClicked: func() {
-				m.chainAction("Stopping Kaspa sharing", "Kaspa HTTPS / Tor stopped. Peer access is unchanged.", func() error { return stopOne(kaspaAccessRoot(m.root), "sharing") })
+			PushButton{AssignTo: &m.kShareStop, Text: "Stop Kaspa LAN / HTTPS / Tor access", OnClicked: func() {
+				m.chainAction("Stopping Kaspa sharing", "Kaspa LAN / HTTPS / Tor stopped. Peer access is unchanged.", func() error { return stopOne(kaspaAccessRoot(m.root), "sharing") })
 			}},
 			TextEdit{AssignTo: &m.kShareDetails, ReadOnly: true, VScroll: true, MinSize: Size{Height: 130}},
 			PushButton{Text: "Copy connection details", OnClicked: func() { m.copyText("Kaspa sharing", m.kShareDetails.Text()) }},
@@ -112,6 +114,7 @@ func (m *manager) startKaspaSharingClicked() {
 		m.walletError(e)
 		return
 	}
+	m.kLAN.read(&s)
 	s.HTTPS = m.kHTTPS.Checked()
 	s.PublicAPI = m.kPublic.Checked()
 	s.Host = strings.TrimSpace(m.kHost.Text())
@@ -139,7 +142,7 @@ func (m *manager) refreshKaspaSharing() {
 		m.kShareState.SetText(e.Error())
 		return
 	}
-	state := "Kaspa HTTPS / Tor stopped"
+	state := "Kaspa LAN / HTTPS / Tor stopped"
 	if active {
 		state = "Kaspa sharing running"
 		if r, e := serviceCommand(kaspaAccessRoot(m.root), "sharing", "status"); e == nil && s.TorMode != "off" && !r.TorReady {
@@ -147,6 +150,7 @@ func (m *manager) refreshKaspaSharing() {
 		}
 	}
 	m.kShareState.SetText(state)
+	m.refreshLAN(true, active)
 	c, _ := chains.Read(m.root)
 	details := fmt.Sprintf("Peer access: %t • TCP %d\r\n", c.PublicP2P, c.P2P)
 	if s.HTTPS {

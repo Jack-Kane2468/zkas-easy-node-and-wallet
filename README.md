@@ -20,10 +20,9 @@ Windows may warn because the EXE is unsigned. Verify the download source and che
 | --- | --- |
 | Overview | Open installation/setup, start/stop services, see sync state, copy API addresses and check manager or node updates. |
 | Wallet | Create/import multiple wallets, receive/send, back up keys, view the selected wallet’s transaction history, and use independent FVK/OVK tools. |
-| Mining | Install or uninstall the bridge, connect miners through Stratum TCP 5555, and view bridge-reported workers/hashrate. |
-| Sharing | Configure incoming peers, HTTPS wallet API access, or personal/public Tor onion access. |
+| Mining | Install, update or uninstall the bridge, connect miners through Stratum TCP 5555, and view bridge-reported workers/hashrate. |
+| Sharing | Connect devices on your local network, configure incoming peers, HTTPS wallet API access, or personal/public Tor onion access. |
 | Settings | Node storage and ports, startup options, installation and uninstall. |
-
 | Logs | Read colored service logs, follow the newest entries, or pause to inspect older output. |
 
 Closing the window leaves services running. These are background processes owned by your Windows user, not Windows Service Control Manager services. ZKas autostart runs at sign-in. Kaspa has its own optional sign-in startup setting. Mining starts manually.
@@ -34,7 +33,7 @@ The built-in wallet stores secrets in a password-encrypted local vault. Keep you
 
 Use **Overview → Check manager updates** to check for newer application releases. Preview releases require **Include preview releases** to be enabled. The manager displays release notes before confirmation, verifies the package and restarts its window. Existing data and running services are retained; the wallet vault locks.
 
-**Check node updates** updates the upstream node separately. See [Manager updates](MANAGER-UPDATES.md) for details.
+**Check node updates** updates the upstream ZKas node and enabled wallet backend separately. Each Mining subtab has **Check for bridge updates…** for its bridge. See [Manager updates](MANAGER-UPDATES.md) for details.
 
 ## Local connections and public access
 

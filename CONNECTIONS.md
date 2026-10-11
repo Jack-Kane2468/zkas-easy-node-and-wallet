@@ -12,10 +12,12 @@ The wallet daemon uses `--no-custodial`. It retains viewing/scan data and suppor
 
 Wallet operations retain the upstream per-wallet `X-Wallet-Token` header. Personal HTTPS also requires `Authorization: Bearer <access token>` from the separate copy button. Public HTTPS/onion does not remove per-wallet authentication. Personal onion authorization is handled by the client's Tor process before the API connection is made.
 
-This version's remote gateway exposes wallet REST only. Node gRPC, JSON wRPC, bridge statistics, administrative routes and custodial/seed operations stay unshared. Browser CORS use is disabled; use native clients. Additional upstream API endpoints are denied until explicitly supported.
+The ZKas internet/Tor gateway exposes wallet REST only. Local-network sharing separately exposes node gRPC and enabled JSON wRPC, plus the non-custodial wallet REST API. Bridge statistics and administrative/custodial/seed wallet operations stay unshared. Browser CORS use is disabled; use native clients. Additional upstream API endpoints are denied until explicitly supported.
 
 Existing programs with custom environment variable names can continue using them. This manager changes no program's configuration, database or keys. The earlier application-specific helper is omitted from this general distribution.
 
 Upstream references:
 - https://github.com/firecash/zkas-rusty/blob/zkas-v1.0.9/docs/WALLETD.md
 - https://github.com/firecash/zkas-rusty/blob/zkas-v1.0.9/docs/NON_CUSTODIAL_WALLET.md
+
+For another computer on the same network, use Sharing → ZKas or Sharing → Kaspa → Local network / Wi-Fi, then copy the displayed address into the other computer’s bot or SDK. See [local-network setup](SHARING.md#other-computers-on-your-local-network--wi-fi).

@@ -56,14 +56,14 @@ Vault location: `%LOCALAPPDATA%\ZKasNodeManager\personal-wallets\vault.json`. AE
 
 ## Bundled signer and validation
 
-Keep `wallet-runtime` alongside the EXE when running the extracted package. It includes Node.js v24.21.0 Windows x64 and the official ZKas signer WASM/glue, pinned to zkas-wallet commit `3668c84c14691a1487eac003daba9ff68af78065`. No separate Node.js installation is needed. The manager checks component hashes before invoking the signer and passes private data through process pipes, not command-line arguments.
+Keep `wallet-runtime` alongside the EXE when running the extracted package. It includes Node.js v24.21.0 Windows x64 and the official ZKas signer WASM/glue, pinned to zkas-wallet commit `8689fb4da9fa399c0a0f68ce49e11be98ad064f0`. No separate Node.js installation is needed. The manager checks component hashes before invoking the signer and passes private data through process pipes, not command-line arguments.
 
 Tested: official signer phrase creation/restoration, raw-key import, account differentiation, a published Orchard FVK vector, invalid phrase and malformed-payment rejection; all ten published Orchard OVK vectors; encrypted vault round trip, wrong-password/tamper rejection, exact amounts and local mock API requests.
 
 Not executed here: native Windows GUI/ACL/process behavior, a fully prepared real ZKas payment, or an on-chain transfer. This is an unsigned preview. Do not treat a successful build or mocked API test as an end-to-end wallet audit.
 
 Sources:
-- https://github.com/firecash/zkas-wallet/tree/3668c84c14691a1487eac003daba9ff68af78065/src/signer
+- https://github.com/firecash/zkas-wallet/tree/8689fb4da9fa399c0a0f68ce49e11be98ad064f0/src/signer
 - https://github.com/firecash/zkas-rusty/blob/zkas-v1.0.9/zkas-walletd/src/lib.rs
 - https://github.com/zcash/orchard/blob/main/src/keys.rs
 - https://github.com/zcash/orchard/blob/main/src/test_vectors/keys.rs

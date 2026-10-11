@@ -52,20 +52,20 @@ The original ZKas statistics remain inside its mining subtab. The Kaspa/merged *
 | JSON wRPC | `ws://127.0.0.1:18110` |
 | Borsh wRPC | the configured local Borsh endpoint (default `ws://127.0.0.1:17110`) |
 
-Use a Kaspa SDK for queries, subscriptions and signed transaction submission. The node does not store wallet keys. Sharing → Kaspa offers peer access, HTTPS/WSS and personal/public Tor access. All are off by default. Other reserved ports: default P2P 16111, dashboard 18889, health 18081, metrics 18115 and Kaspa Tor gateway 18503. API and P2P ports can be changed in Settings; the wallet and mining bridge follow those settings.
+Use a Kaspa SDK for queries, subscriptions and signed transaction submission. The node does not store wallet keys. Sharing → Kaspa offers local-network API access, peer access, HTTPS/WSS and personal/public Tor access. All are off by default. Other reserved ports: default P2P 16111, dashboard 18889, health 18081, metrics 18115 and Kaspa Tor gateway 18503. API and P2P ports can be changed in Settings; the wallet and mining bridge follow those settings.
 
 ## Versions and validation
 
-Node/bridge releases are pinned to Kaspa v2.1.0 and solo-dual-mode v1.0.11. **Check node updates** updates ZKas; future manager releases can change the Kaspa pins. Repair/uninstall controls are under Settings → Kaspa. Main uninstall removes managed node/bridge programs while retaining databases and wallet files.
+Initial installations use Kaspa v2.1.0 and solo-dual-mode v1.0.12. Mining → **Check for bridge updates…** downloads the latest stable Windows bridge from its official repository and verifies its published SHA-256. Kaspa node updates remain tied to the manager’s node pin. **Check node updates** updates ZKas and its enabled wallet backend. Repair/uninstall controls are under Settings → Kaspa. Main uninstall removes managed node/bridge programs while retaining databases and wallet files.
 
 This preview is cross-built for Windows. Offline wallet integration and portable Go tests run during validation. Native Windows UI/firewall operation, live wallet payments and actual mining payouts have not been exercised in the build environment. See VALIDATION.md.
 
 
 ## Sharing Kaspa
 
-**Sharing → Kaspa** has separate panels for peers, HTTPS/WSS and Tor. These are independent choices, not sequential steps. Stop Kaspa before changing peer access. Router forwarding is manual: forward the selected peer port for other nodes, or the HTTPS port for wallet/app access. Share peer addresses as `HOST:PORT`.
+**Sharing → Kaspa** has separate panels for local-network devices, peers, HTTPS/WSS and Tor. These are independent choices, not sequential steps. Stop Kaspa before changing peer access. Router forwarding is manual: forward the selected peer port for other nodes, or the HTTPS port for wallet/app access. Share peer addresses as `HOST:PORT`.
 
-The secure wallet/app gateway defaults to port 8444, separate from ZKas's 8443. Its endpoints are `wss://HOST:PORT/borsh` and `wss://HOST:PORT/json`. Private HTTPS requires `Authorization: Bearer TOKEN` in the WebSocket upgrade; use an SDK that supports custom headers. Public mode needs no token. This exposes Kaspa's safe node RPC, including signed transaction submission, not a server-side wallet or seed API. gRPC stays local. The gateway limits concurrent connections to 64 per listener.
+The secure wallet/app gateway defaults to port 8444, separate from ZKas's 8443. Its endpoints are `wss://HOST:PORT/borsh` and `wss://HOST:PORT/json`. Private HTTPS requires `Authorization: Bearer TOKEN` in the WebSocket upgrade; use an SDK that supports custom headers. Public mode needs no token. This exposes Kaspa's safe node RPC, including signed transaction submission, not a server-side wallet or seed API. gRPC stays local unless local-network sharing is separately enabled. The gateway limits concurrent connections to 64 per listener.
 
 Self-signed certificates need explicit client trust. Public clients normally need a CA-issued certificate matching the domain. Certificates are not automatically obtained or renewed. Create a DNS A record for a domain and test from a different internet connection; a saved address is not proof of reachability. CGNAT may require a public IP from the ISP or Tor.
 
@@ -78,3 +78,13 @@ Stopping Kaspa stops its sharing and dependent mining. Stopping ZKas leaves Kasp
 Both projects name their node executable `kaspad.exe`. Running both chains therefore creates two independent node processes; one cannot serve both networks. The overview identifies each node separately.
 
 Status monitoring reuses persistent gRPC streams instead of opening a new connection per poll. Initial connections, reconnects after a node restart, and explicit setup checks can still appear in logs. The Kaspa overview has text status like ZKas and no animated loading bar.
+
+## Export a recovery phrase
+
+Open the selected Kaspa wallet and use **Export recovery phrase…** in its backup controls. Confirm the vault password. The manager verifies the phrase against the selected account, then shows it with the account number and any BIP39 passphrase needed for restoration. A private-key-only wallet has no seed phrase; use its receiving-key export instead.
+
+If an older wallet has no recovery phrase saved in the vault, supply its original backup once. The manager verifies it before saving it encrypted for future exports. It cannot reconstruct a missing phrase from an address or individual receiving private key.
+
+## Connect from another local device
+
+In Sharing → Kaspa, enable Local network / Wi-Fi and select this PC's local address. Apply, then use the displayed `HOST:PORT` for gRPC or `ws://HOST:PORT` for Borsh/JSON. LAN URLs use separate protocol ports and do not have the HTTPS gateway's `/borsh` or `/json` suffix. See SHARING.md for network setup and access limits.

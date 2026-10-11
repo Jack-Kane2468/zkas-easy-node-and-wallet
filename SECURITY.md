@@ -19,3 +19,5 @@ The GUI signs using a checksum-pinned local runtime. Runtime hashes detect unexp
 The node, wallet daemon, Tor and mining bridge are separate upstream programs. Their releases and your PC's security remain part of the trust model. Node/bridge downloads use upstream release checksums; the project does not independently certify those binaries.
 
 Local APIs are loopback-bound by default. Sharing must be deliberately enabled. Public registration can consume disk/CPU; gateway limits do not replace external capacity management, monitoring and abuse protection. Tor identity reuse and HTTPS certificates are retained with user data on uninstall.
+
+Local-network sharing binds one chosen private IPv4 address and filters clients to its subnet, with Windows Private/Domain firewall rules. It shares unauthenticated, unencrypted node RPC with trusted devices on that subnet. Do not forward LAN ports to the internet; use the separate HTTPS/Tor features for remote access. LAN wallet REST still blocks seed/custodial/admin endpoints.

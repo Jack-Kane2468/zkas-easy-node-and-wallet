@@ -22,11 +22,14 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"zkas-node-manager/internal/lanshare"
 )
 
 const OnionGatewayPort = 18502
 
 type SharingConfig struct {
+	LAN            bool   `json:"lan,omitempty"`
+	LANIP          string `json:"lanIP,omitempty"`
 	HTTPS          bool   `json:"https"`
 	Host           string `json:"host"`
 	Port           int    `json:"port"`
@@ -60,6 +63,11 @@ func SaveSharing(root string, c SharingConfig) error {
 var hostName = regexp.MustCompile(`^[a-zA-Z0-9](?:[a-zA-Z0-9.-]{0,251}[a-zA-Z0-9])?$`)
 
 func (s SharingConfig) Validate(c Config) error {
+	if s.LAN {
+		if _, e := lanshare.Subnet(s.LANIP); e != nil {
+			return e
+		}
+	}
 	if s.TorMode != "off" && s.TorMode != "personal" && s.TorMode != "public" {
 		return fmt.Errorf("choose a Tor access mode")
 	}

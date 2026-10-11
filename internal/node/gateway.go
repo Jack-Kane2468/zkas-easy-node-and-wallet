@@ -97,5 +97,5 @@ func (s SharingConfig) ConnectionDetails(root string) string {
 	if result == "" {
 		result = "API sharing disabled. Local APIs remain available."
 	}
-	return result + fmt.Sprint("\r\nRemote APIs expose watch-only operations; node gRPC and JSON wRPC remain local.")
+	return result + fmt.Sprint("\r\nInternet/Tor access exposes non-custodial wallet operations. Node RPC is shared only if local-network access is separately enabled.")
 }

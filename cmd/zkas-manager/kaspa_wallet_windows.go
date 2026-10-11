@@ -28,6 +28,7 @@ type kaspaWalletState struct {
 	Accounts                           []struct {
 		ID, Name, Address, Kind string
 		Index                   uint32
+		AccountIndex            uint64
 	}
 }
 type kaspaWalletReply struct {
@@ -227,6 +228,7 @@ func (m *manager) kaspaWalletTab() TabPage {
 		TextLabel{Text: "A pruned node provides current UTXOs. It cannot reconstruct every previously spent transaction when importing a phrase.", MinSize: Size{Width: 240}},
 		GroupBox{Title: "Vault backup", Layout: VBox{}, Children: []Widget{
 			pair(button("backup", "Back up vault…", m.kwExport), button("restore", "Restore vault…", m.kwRestoreVault)),
+			button("recovery", "Export recovery phrase…", m.kwExportRecovery),
 			button("password", "Change vault password…", m.kwChangePassword),
 			TextLabel{Text: "Keep your recovery phrases and vault password safe.", MinSize: Size{Width: 240}},
 		}},
@@ -254,7 +256,7 @@ func (m *manager) kwControls() {
 		switch key {
 		case "lock", "backup":
 			enabled = enabled && m.kwVault != nil
-		case "copy", "new", "connect", "history", "remove", "addresses":
+		case "copy", "new", "connect", "history", "remove", "addresses", "recovery":
 			enabled = enabled && m.kwState.Open
 		case "send":
 			enabled = enabled && m.kwState.Open && m.kwState.Ready

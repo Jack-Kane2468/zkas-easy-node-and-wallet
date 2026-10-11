@@ -1,7 +1,9 @@
-# 0.9.6-preview validation
+# 0.9.9-preview validation
 
-Portable tests cover note counts (including missing/null versus zero), vault-password changes with wallet data preserved, rejection of the old password and failed-change preservation. Official Kaspa SDK offline tests check exported receiving keys against actual account addresses for multiple indexes, nonzero account numbers, BIP39 passphrases and private-key imports; mismatched accounts, indexes, addresses and recovery secrets are rejected. Windows code is cross-compiled and statically checked.
+Portable Go tests cover existing node/wallet/mining behavior and bridge release validation: exact repository/asset matching, required SHA-256, stable-release selection, duplicate assets, download size and downgrade refusal. The official v1.0.12 bridge and v1.0.11 core Windows archives were checksum-verified and extraction-tested. Windows code is cross-compiled and statically checked.
 
-The SDK’s direct private-key data getter is not used: it aborted in an offline test. Export instead uses the SDK’s supported mnemonic/private-key derivation and address checks. An existing wallet without a saved recovery secret requires it once for address-key export. Secrets are stored in the encrypted vault and exported only through a user-requested reveal dialog.
+The bundled v1.0.47 signer matches upstream commit 8689fb4da9fa399c0a0f68ce49e11be98ad064f0. Offline tests cover public address, FVK and seed/account derivation vectors, the manager adapter and malformed-payment rejection. These do not constitute a successful live transaction or a security audit of upstream WASM.
 
-No live transactions or native Windows UI interactions were performed. Consolidation and payment code are unchanged from 0.9.5. No real funds were used. The release package is checked for its Windows x64 GUI executable, runtime hashes, archive integrity and updater compatibility.
+Existing OVK decryption vectors and copies with the named-anchor trailer pass. Truncated/extra trailers are rejected. This adapter is for decryption only; it does not verify consensus or change bundles submitted for signing. Existing mining statistics tests cover separate ZKas/Kaspa counters, hashrate units, malformed responses and bounded worker output.
+
+Package checks cover the Windows x64 GUI EXE, runtime hashes, archive integrity, SHA256SUMS and updater extraction. No native Windows UI, live mining hardware, live upgrade/restart or payouts were tested. Wallet vault formats, payout field order and local-network sharing are retained.
