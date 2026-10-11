@@ -8,6 +8,8 @@ import (
 )
 
 type chainsUI struct {
+	kaspaNodeUpdate, kaspaManagerUpdate                           *walk.PushButton
+	kaspaManagerPreviews                                          *walk.CheckBox
 	overviewTabs, walletTabs                                      *walk.TabWidget
 	kaspaRAM                                                      *walk.NumberEdit
 	kaspaSave                                                     *walk.PushButton
@@ -36,6 +38,16 @@ func (m *manager) kaspaOverviewTab() TabPage {
 		}}, PushButton{AssignTo: &m.kaspaStop, Visible: false, Text: "Stop Kaspa", OnClicked: func() {
 			m.chainAction("Stopping Kaspa", "Kaspa and shared mining are stopped. Data is retained.", func() error { return stopKaspa(m.root) })
 		}}, PushButton{Text: "Refresh status", OnClicked: m.refreshChains}}}}},
+		GroupBox{Title: "Updates", Layout: VBox{Spacing: 6}, Children: []Widget{
+			PushButton{AssignTo: &m.kaspaNodeUpdate, Text: "Check node updates", OnClicked: m.checkKaspaNodeUpdate},
+			Label{Text: "Update the Kaspa node from its official stable release. Mining bridges have separate update buttons in Mining."},
+			PushButton{AssignTo: &m.kaspaManagerUpdate, Text: "Check manager updates", OnClicked: m.checkManagerUpdate},
+			CheckBox{AssignTo: &m.kaspaManagerPreviews, Text: "Include preview releases", Checked: true, OnCheckedChanged: func() {
+				if m.managerPreviews != nil {
+					m.managerPreviews.SetChecked(m.kaspaManagerPreviews.Checked())
+				}
+			}},
+		}},
 		GroupBox{Title: "Local connections", Layout: VBox{}, Children: []Widget{Label{AssignTo: &m.kaspaEndpoints}, PushButton{Text: "Copy API addresses", OnClicked: func() { m.copyText("Kaspa API addresses", m.kaspaEndpointText()) }}, Label{Text: "Use Wallet → Kaspa for the built-in wallet. Sharing configures access from other devices."}}},
 	}}}}
 }

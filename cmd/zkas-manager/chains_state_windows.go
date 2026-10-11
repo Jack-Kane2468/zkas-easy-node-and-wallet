@@ -38,6 +38,9 @@ func (m *manager) updateChainControls() {
 	active := serviceActive(m.root, "kaspa")
 	mining := serviceActive(m.root, "dual")
 	idle := !m.busy
+	m.kaspaNodeUpdate.SetEnabled(idle && installed)
+	m.kaspaManagerUpdate.SetEnabled(idle)
+	m.kaspaManagerPreviews.SetEnabled(idle)
 	m.kaspaInstall.SetVisible(!installed)
 	m.kaspaInstall.SetEnabled(idle && !active)
 	m.kaspaStart.SetVisible(installed && !active)

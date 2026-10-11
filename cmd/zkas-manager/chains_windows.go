@@ -52,6 +52,26 @@ func installKaspa(root string, progress func(string)) error {
 	if e != nil {
 		return e
 	}
+	// Repair an updated node from the current release, never from the older installation pin.
+	if newer, _ := chains.BridgeNewer(c.Kaspa.Version, chains.KaspaVersion); newer {
+		r, err := chains.LatestKaspaNode(context.Background())
+		if err != nil {
+			return err
+		}
+		if older, err := chains.BridgeNewer(c.Kaspa.Version, r.Release.Tag); err != nil || older {
+			return errors.New("The latest stable release is older than this installed Kaspa node; refusing to downgrade during repair")
+		}
+		binary, err := chains.InstallKaspaNodeRelease(context.Background(), root, r, progress)
+		if err != nil {
+			return err
+		}
+		c.Kaspa = binary
+		c.Host, err = chainHostPath(root)
+		if err != nil {
+			return err
+		}
+		return chains.Save(root, c)
+	}
 	b, e := chains.Install(context.Background(), root, false, progress)
 	if e != nil {
 		return e

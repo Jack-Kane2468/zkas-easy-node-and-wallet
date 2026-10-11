@@ -33,7 +33,7 @@ The built-in wallet stores secrets in a password-encrypted local vault. Keep you
 
 Use **Overview → Check manager updates** to check for newer application releases. Preview releases require **Include preview releases** to be enabled. The manager displays release notes before confirmation, verifies the package and restarts its window. Existing data and running services are retained; the wallet vault locks.
 
-**Check node updates** updates the upstream ZKas node and enabled wallet backend separately. Each Mining subtab has **Check for bridge updates…** for its bridge. See [Manager updates](MANAGER-UPDATES.md) for details.
+**Check node updates** on each Overview page updates that chain’s node separately; ZKas also updates its enabled wallet backend. **Check manager updates** is available on both Overview pages. Each Mining subtab has **Check for bridge updates…** for its bridge. See [Manager updates](MANAGER-UPDATES.md) for details.
 
 ## Local connections and public access
 

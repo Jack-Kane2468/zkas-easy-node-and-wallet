@@ -1,10 +1,19 @@
 package chains
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"zkas-node-manager/internal/node"
 )
+
+func TestKaspaNodeRejectsWrongReleaseBeforeDownload(t *testing.T) {
+	for _, r := range []BridgeRelease{{Dual: true}, {Release: node.Release{Tag: "v2.1.0"}}} {
+		if _, e := InstallKaspaNodeRelease(context.Background(), t.TempDir(), r, func(string) { t.Fatal("download started for invalid release") }); e == nil {
+			t.Fatal("invalid node release accepted")
+		}
+	}
+}
 
 func TestBridgeReleaseValidation(t *testing.T) {
 	for _, dual := range []bool{false, true} {

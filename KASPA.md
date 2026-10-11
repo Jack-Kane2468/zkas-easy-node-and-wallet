@@ -56,7 +56,7 @@ Use a Kaspa SDK for queries, subscriptions and signed transaction submission. Th
 
 ## Versions and validation
 
-Initial installations use Kaspa v2.1.0 and solo-dual-mode v1.0.12. Mining → **Check for bridge updates…** downloads the latest stable Windows bridge from its official repository and verifies its published SHA-256. Kaspa node updates remain tied to the manager’s node pin. **Check node updates** updates ZKas and its enabled wallet backend. Repair/uninstall controls are under Settings → Kaspa. Main uninstall removes managed node/bridge programs while retaining databases and wallet files.
+Initial installations use Kaspa v2.1.0 and solo-dual-mode v1.0.12. Mining → **Check for bridge updates…** downloads the latest stable Windows bridge from its official repository and verifies its published SHA-256. Overview → Kaspa → **Check node updates** checks the latest official stable Kaspa node release. Downloads are checksum-verified before stopping the node. A running node restarts; a stopped node stays stopped. Kaspa/merged mining is paused and can be restarted after the node is ready. Databases and settings are retained. **Check node updates** updates ZKas and its enabled wallet backend. Repair/uninstall controls are under Settings → Kaspa. Main uninstall removes managed node/bridge programs while retaining databases and wallet files.
 
 This preview is cross-built for Windows. Offline wallet integration and portable Go tests run during validation. Native Windows UI/firewall operation, live wallet payments and actual mining payouts have not been exercised in the build environment. See VALIDATION.md.
 

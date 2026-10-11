@@ -261,7 +261,11 @@ func (m *manager) create() error {
 						}},
 						Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
 							PushButton{AssignTo: &m.managerUpdate, Text: "Check manager updates", OnClicked: m.checkManagerUpdate},
-							CheckBox{AssignTo: &m.managerPreviews, Text: "Include preview releases", Checked: true},
+							CheckBox{AssignTo: &m.managerPreviews, Text: "Include preview releases", Checked: true, OnCheckedChanged: func() {
+								if m.kaspaManagerPreviews != nil {
+									m.kaspaManagerPreviews.SetChecked(m.managerPreviews.Checked())
+								}
+							}},
 						}},
 						Label{Text: "Local connections", Font: Font{Bold: true}}, Label{AssignTo: &m.endpoints},
 						Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{

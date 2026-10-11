@@ -108,3 +108,25 @@ func InstallBridgeRelease(ctx context.Context, root string, r BridgeRelease, pro
 	}
 	return binaries["stratum-bridge.exe"], nil
 }
+
+// Kaspa node and bridge share an upstream archive, but are installed and updated independently.
+func LatestKaspaNode(ctx context.Context) (BridgeRelease, error) {
+	return LatestBridge(ctx, false)
+}
+
+func InstallKaspaNodeRelease(ctx context.Context, root string, r BridgeRelease, progress func(string)) (Binary, error) {
+	if r.Dual {
+		return Binary{}, fmt.Errorf("A merged bridge release cannot update the Kaspa node")
+	}
+	checked, e := ValidateBridgeRelease(r.Release, false)
+	if e != nil {
+		return Binary{}, e
+	}
+	hash := strings.ToLower(strings.TrimPrefix(checked.Asset.Digest, "sha256:"))
+	folder := "kaspa-node-" + checked.Release.Tag + "-" + hash[:12]
+	b, e := installArchive(ctx, root, checked.Asset.URL, hash, checked.Release.Tag, folder, []string{"kaspad.exe"}, progress)
+	if e != nil {
+		return Binary{}, e
+	}
+	return b["kaspad.exe"], nil
+}
