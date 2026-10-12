@@ -1,3 +1,16 @@
+# 0.9.15-preview
+
+- Settings → ZKas now offers a rescan for all registered wallets, including bot/application wallets, using the official backend API. Keys and registrations are retained.
+- Displays accepted request counts separately from scan completion and reports partial failures.
+
+# 0.9.14-preview
+
+Restores the v0.9.11 manager behavior, retaining the Kaspa wallet-selection improvements. ZKas components are downloaded from official upstream release assets. No modified wallet daemon is bundled. Node update checks refer only to official upstream node releases.
+
+# 0.9.11-preview
+
+Improved Kaspa wallet switching and clarified wallet/account selectors.
+
 # 0.9.10-preview — Kaspa Overview updates
 
 - Added **Check manager updates** to Overview → Kaspa. Both Overview pages share the same manager update channel and preview-release setting.

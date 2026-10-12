@@ -165,6 +165,8 @@ func main() {
 }
 
 type manager struct {
+	rescanButton *walk.PushButton
+	rescanStatus *walk.TextLabel
 	miningUpdate *walk.PushButton
 	chainsUI
 	kaspaSettingsUI
@@ -290,6 +292,10 @@ func (m *manager) create() error {
 						Label{Text: "Install and configure", Font: Font{PointSize: 12, Bold: true}},
 						Label{Text: "The defaults suit most users. Review the options below, then install."},
 						PushButton{AssignTo: &m.install, Text: "Install / repair components", OnClicked: m.installAction},
+						GroupBox{Title: "Wallet maintenance", Layout: VBox{}, Children: []Widget{
+							PushButton{AssignTo: &m.rescanButton, Text: "Rescan all ZKas wallets…", OnClicked: m.rescanZKasWallets},
+							TextLabel{AssignTo: &m.rescanStatus, Text: "Rebuild wallet balances and history from the beginning. Includes bot and application wallets registered on this node.", MinSize: Size{Width: 240}},
+						}},
 						Label{Text: "Stop services before changing settings."},
 						Label{Text: "Blockchain data folder"},
 						Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
@@ -542,6 +548,7 @@ func (m *manager) refresh(r hostReply, hostErr error, info node.NodeInfo, rpcErr
 	for _, w := range []walk.Widget{m.data, m.grpc, m.ws, m.enableWS, m.mode, m.auto, m.browse, m.enableWallet, m.walletPort, m.resident} {
 		w.SetEnabled(!m.busy && !active)
 	}
+	m.rescanButton.SetEnabled(!m.busy && serviceActive(m.root, "wallet"))
 	m.install.SetEnabled(!m.busy && !active)
 	m.start.SetEnabled(!m.busy && installed && (!serviceActive(m.root, "node") || m.cfg.EnableWallet && !serviceActive(m.root, "wallet")))
 	m.stop.SetEnabled(!m.busy && active)

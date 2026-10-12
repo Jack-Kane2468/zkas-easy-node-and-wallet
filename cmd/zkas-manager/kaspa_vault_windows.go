@@ -50,7 +50,8 @@ func (m *manager) kwUnlockVault() bool {
 	}
 	m.kwVault = vault
 	m.kwVaultPassword = v[0]
-	m.kwStatus.SetText("Kaspa vault unlocked. Select a wallet and open it.")
+	m.kwStatus.SetText("Kaspa vault unlocked. Select a wallet to open it.")
+	m.kwVaultList()
 	m.kwControls()
 	return true
 }
@@ -79,6 +80,8 @@ func (m *manager) kwSnapshot() error {
 	return kaspavault.Save(m.root, m.kwVaultPassword, m.kwVault)
 }
 func (m *manager) kwVaultList() {
+	m.kwUpdating = true
+	defer func() { m.kwUpdating = false }()
 	if m.kwVault == nil {
 		return
 	}

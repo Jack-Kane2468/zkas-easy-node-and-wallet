@@ -144,6 +144,8 @@ type kaspaWalletUI struct {
 	kwProcess                       *kaspaWalletProcess
 	kwList, kwAccounts              *walk.ComboBox
 	kwStatus                        *walk.TextLabel
+	kwAccountHint                   *walk.TextLabel
+	kwRevision                      uint64
 	kwReceive                       *walk.LineEdit
 	kwHistory                       *walk.TextEdit
 	kwButtons                       map[string]**walk.PushButton
@@ -171,20 +173,26 @@ func (m *manager) kaspaWalletTab() TabPage {
 	m.kwAddressModel = &kaspaAddressModel{}
 	return TabPage{Title: "Wallet", Layout: VBox{MarginsZero: true}, Children: []Widget{ScrollView{Layout: VBox{Spacing: 8}, Children: []Widget{
 		Label{Text: "Kaspa wallet", Font: Font{PointSize: 12, Bold: true}},
-		TextLabel{Text: "One Kaspa vault holds your wallets. Unlock it, choose a wallet, then connect to your local node.", MinSize: Size{Width: 240}},
+		TextLabel{Text: "One Kaspa vault holds your wallets. Unlock the vault, then select a wallet to open it. Connect that wallet to your local node to load its balance.", MinSize: Size{Width: 240}},
 		GroupBox{Title: "Wallets", Layout: VBox{}, Children: []Widget{
 			pair(button("create", "Create wallet…", func() { m.kwCreate(false) }), button("import", "Import phrase / key…", func() { m.kwCreate(true) })),
-			ComboBox{AssignTo: &m.kwList, Model: []string{"Unlock the vault"}, CurrentIndex: 0},
-			pair(button("open", "Unlock / open wallet", m.kwOpen), button("lock", "Lock vault", m.kwLock)),
+			Label{Text: "Wallet in your Kaspa vault"},
+			ComboBox{AssignTo: &m.kwList, Model: []string{"Unlock the vault"}, CurrentIndex: 0, OnCurrentIndexChanged: func() {
+				if !m.kwUpdating && !m.busy && m.kwVault != nil {
+					m.kwOpen()
+				}
+			}},
+			pair(button("open", "Unlock vault", m.kwOpen), button("lock", "Lock vault", m.kwLock)),
 			pair(button("refresh", "Refresh wallet list", m.kwRefreshList), button("remove", "Remove wallet…", m.kwDelete)),
-			Label{Text: "Account"}, ComboBox{AssignTo: &m.kwAccounts, OnCurrentIndexChanged: func() {
+			Label{Text: "Account inside the open wallet"}, ComboBox{AssignTo: &m.kwAccounts, OnCurrentIndexChanged: func() {
 				if !m.kwUpdating && m.kwAccounts.CurrentIndex() >= 0 {
 					i := m.kwAccounts.CurrentIndex()
-					if i < len(m.kwState.Accounts) {
+					if i < len(m.kwState.Accounts) && m.kwState.Accounts[i].ID != m.kwState.Selected {
 						m.kwAction(map[string]any{"op": "select", "account": m.kwState.Accounts[i].ID}, true, nil)
 					}
 				}
 			}},
+			TextLabel{AssignTo: &m.kwAccountHint, Text: "Open a wallet to see its account.", MinSize: Size{Width: 240}},
 		}},
 		TextLabel{Text: "Account balance includes UTXOs across its receiving and change addresses. Sends use the account’s automatic coin selection.", MinSize: Size{Width: 240}},
 		TextLabel{AssignTo: &m.kwStatus, MinSize: Size{Width: 240}, Text: "Vault locked.", Font: Font{Bold: true}},
@@ -198,10 +206,10 @@ func (m *manager) kaspaWalletTab() TabPage {
 			}), button("new", "Generate next address", func() { m.kwAction(map[string]any{"op": "address"}, true, nil) })),
 		}},
 		GroupBox{Title: "Addresses and UTXOs", Layout: VBox{}, Children: []Widget{
-			TextLabel{Text: "Each row is an indexed address, with its own unspent outputs. Change addresses hold change returned by payments. Unspent totals may include immature rewards; they are not a spendable-balance estimate.", MinSize: Size{Width: 240}},
+			TextLabel{Text: "Each row is an indexed address, with its own unspent outputs. Receive = addresses to share for payments. Change = your own addresses for leftover funds returned by sends. Unspent totals may include immature rewards; they are not a spendable-balance estimate.", MinSize: Size{Width: 240}},
 			button("addresses", "Refresh address balances", func() { m.kwLoadAddresses(0) }),
 			TextLabel{AssignTo: &m.kwAddressStatus, Text: "Open a wallet to view its indexed addresses.", MinSize: Size{Width: 240}},
-			TableView{AssignTo: &m.kwAddressTable, Model: m.kwAddressModel, MinSize: Size{Width: 240, Height: 140}, OnCurrentIndexChanged: m.kwSelectAddress, Columns: []TableViewColumn{{Title: "Branch", Width: 65}, {Title: "Index", Width: 55}, {Title: "Address", Width: 350}, {Title: "Unspent KAS", Width: 120}, {Title: "UTXOs", Width: 60}}},
+			TableView{AssignTo: &m.kwAddressTable, Model: m.kwAddressModel, MinSize: Size{Width: 240, Height: 140}, OnCurrentIndexChanged: m.kwSelectAddress, Columns: []TableViewColumn{{Title: "Address purpose", Width: 100}, {Title: "Index", Width: 55}, {Title: "Address", Width: 350}, {Title: "Unspent KAS", Width: 120}, {Title: "UTXOs", Width: 60}}},
 			pair(button("previous", "Previous addresses", func() { m.kwLoadAddresses(m.kwAddressOffset - 50) }), button("next", "Next addresses", func() { m.kwLoadAddresses(m.kwAddressOffset + 50) })),
 			button("copyselected", "Copy selected address", func() {
 				i := m.kwAddressTable.CurrentIndex()
@@ -279,12 +287,21 @@ func (m *manager) kwControls() {
 		}
 		(*p).SetEnabled(enabled)
 	}
-	m.kwList.SetEnabled(!m.busy)
-	m.kwAccounts.SetEnabled(!m.busy && m.kwState.Open)
+	if p := m.kwButtons["open"]; p != nil && *p != nil {
+		if m.kwVault == nil {
+			(*p).SetText("Unlock vault")
+		} else {
+			(*p).SetText("Open selected wallet")
+		}
+	}
+	m.kwList.SetEnabled(!m.busy && m.kwVault != nil && len(m.kwFiles) > 0)
+	m.kwAccounts.SetEnabled(!m.busy && m.kwState.Open && len(m.kwState.Accounts) > 1)
 }
 func (m *manager) kwApply(s kaspaWalletState) {
+	m.kwRevision++
 	if m.kwState.Filename != s.Filename || m.kwState.Selected != s.Selected {
 		m.kwClearAddresses()
+		m.kwHistory.SetText("")
 	}
 	m.kwState = s
 	m.kwUpdating = true
@@ -293,7 +310,13 @@ func (m *manager) kwApply(s kaspaWalletState) {
 	idx := -1
 	addr := ""
 	for i, a := range s.Accounts {
-		names = append(names, a.Name)
+		label := fmt.Sprintf("Account %d", a.AccountIndex)
+		if strings.Contains(a.Kind, "keypair") {
+			label = "Imported private key (single address)"
+		} else if a.Name != "" {
+			label += " — " + a.Name
+		}
+		names = append(names, label)
 		if a.ID == s.Selected {
 			idx = i
 			addr = a.Address
@@ -334,6 +357,19 @@ func (m *manager) kwApply(s kaspaWalletState) {
 			}
 		}
 	}
+	hint := "Open a wallet to see its account."
+	if s.Open {
+		hint = "Accounts are separate address sets within this wallet; each has its own balance. Account 0 is the usual default."
+		if len(s.Accounts) == 1 {
+			hint = "This wallet has one account, shown above. To use another wallet, change the Wallet dropdown."
+		}
+		if m.kwVault != nil {
+			if w := m.kwVault.Find(s.Filename); w != nil {
+				status = "Open wallet: " + w.Name + "\n" + status
+			}
+		}
+	}
+	m.kwAccountHint.SetText(hint)
 	m.kwStatus.SetText(status)
 	m.kwControls()
 }
@@ -345,11 +381,22 @@ func (m *manager) kwAction(q map[string]any, state bool, done func(json.RawMessa
 		m.walletError(e)
 		return
 	}
+	m.kwRevision++
 	p := m.kwProcess
 	m.chainAction("Working with Kaspa wallet", "Kaspa wallet operation completed.", func() error {
 		defer func() { delete(q, "password"); delete(q, "secret"); delete(q, "passphrase") }()
 		var r json.RawMessage
 		if e := p.call(q, &r); e != nil {
+			if state {
+				var actual kaspaWalletState
+				_ = p.call(map[string]any{"op": "status"}, &actual)
+				m.onUI(func() {
+					m.kwApply(actual)
+					if actual.Open {
+						m.kwVaultList()
+					}
+				})
+			}
 			return e
 		}
 		if state {
@@ -423,7 +470,11 @@ func (m *manager) kwOpen() {
 	if entry == nil {
 		return
 	}
-	m.kwHistory.SetText("")
+	if m.kwState.Open && m.kwState.Filename == entry.ID {
+		return
+	}
+	m.kwApply(kaspaWalletState{})
+	m.kwStatus.SetText("Opening wallet: " + entry.Name + "…")
 	m.kwAction(map[string]any{"op": "open", "filename": entry.ID, "password": entry.Password}, true, nil)
 }
 func (m *manager) kwLock() {
@@ -436,6 +487,11 @@ func (m *manager) kwLock() {
 	}
 	m.kwVault = nil
 	m.kwVaultPassword = ""
+	m.kwUpdating = true
+	m.kwFiles = nil
+	m.kwList.SetModel([]string{"Unlock the vault"})
+	m.kwList.SetCurrentIndex(0)
+	m.kwUpdating = false
 	m.kwApply(kaspaWalletState{})
 	m.kwHistory.SetText("")
 }
@@ -615,6 +671,7 @@ func (m *manager) kwPoll() {
 		return
 	}
 	m.kwPolling = true
+	revision := m.kwRevision
 	p := m.kwProcess
 	go func() {
 		var s kaspaWalletState
@@ -624,7 +681,7 @@ func (m *manager) kwPoll() {
 		}
 		m.onUI(func() {
 			m.kwPolling = false
-			if m.kwProcess != p || m.busy {
+			if m.kwProcess != p || m.busy || revision != m.kwRevision {
 				return
 			}
 			if e != nil {
