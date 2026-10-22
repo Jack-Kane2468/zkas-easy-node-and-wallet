@@ -87,6 +87,9 @@ func (c Client) Status(ctx context.Context) (Status, error) {
 	return s, e
 }
 func (s Status) Display() string {
+	if s.Error != "" {
+		return "Wallet needs attention: " + s.Error + "\r\nBalance may be incomplete. If the saved checkpoint cannot be verified, use Rescan this wallet."
+	}
 	if s.Loading {
 		return "Opening wallet. Balance is not available yet."
 	}
@@ -162,13 +165,14 @@ func Timeout(d time.Duration) (context.Context, context.CancelFunc) {
 func HistoryDisplay(data []byte) string {
 	var h struct {
 		Rows []struct {
-			Kind       string `json:"kind"`
-			TxID       string `json:"txid"`
-			Timestamp  int64  `json:"timestamp"`
-			Amount     uint64 `json:"amountSompi"`
-			Recipient  string `json:"recipient"`
-			Memo       string `json:"memo"`
-			AmountKind string `json:"amountKind"`
+			Kind       string          `json:"kind"`
+			TxID       string          `json:"txid"`
+			Timestamp  int64           `json:"timestamp"`
+			Amount     uint64          `json:"amountSompi"`
+			Recipient  string          `json:"recipient"`
+			Memo       string          `json:"memo"`
+			Credits    []HistoryCredit `json:"credits"`
+			AmountKind string          `json:"amountKind"`
 		} `json:"rows"`
 		Pending []struct {
 			TxID string `json:"txid"`
@@ -198,9 +202,11 @@ func HistoryDisplay(data []byte) string {
 		if r.Recipient != "" {
 			out += "To: " + r.Recipient + "\r\n"
 		}
-		if r.Memo != "" {
-			out += "Memo: " + r.Memo + "\r\n"
+		row := HistoryRow{Memo: r.Memo, Credits: r.Credits}
+		if memo := row.DisplayMemo(); memo != "" {
+			out += "Memo: " + memo + "\r\n"
 		}
+		out += row.CreditDetails()
 		out += "\r\n"
 	}
 	for _, r := range h.Pending {

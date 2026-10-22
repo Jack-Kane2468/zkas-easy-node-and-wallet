@@ -1,9 +1,5 @@
-# v0.9.15-preview validation
+# v0.9.18-preview validation
 
-- Portable Go tests passed across all internal packages.
-- Rescan tests cover daemon registrations outside the vault, unchanged registration/checkpoint files, exact official API requests with the genesis check retained, invalid registration rejection and partial success followed by refusal.
-- Windows go vet passed.
-- Windows x64 GUI executable cross-built; PE architecture, GUI subsystem and version checked during packaging.
-- Runtime hashes and both ZIP checksum manifests verified during packaging.
+Portable internal Go tests and Windows static checks passed. Windows x64 GUI executable cross-built. Regression tests cover unique bot-wallet matching, ambiguous checkpoint rejection, stale checkpoint rejection and recent-loop classification with distinct timestamps. Existing tests cover rescan request payloads and partial refusal.
 
-Native Windows interface testing and live funded-wallet rescans were not performed in this build environment. An accepted rescan request does not mean scanning has completed.
+Runtime hashes, archive integrity, executable version and SHA256 manifests are checked during packaging. Native Windows inline-button interaction, physical scrolling and funded live rescans have not been tested in this build environment.

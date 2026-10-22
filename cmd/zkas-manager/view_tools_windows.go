@@ -60,7 +60,7 @@ func (v *viewHistoryModel) Value(row, col int) interface{} {
 	case 4:
 		return r.TxID
 	case 5:
-		return r.Memo
+		return r.DisplayMemo()
 	case 6:
 		if r.FeeKnown {
 			n, _ := strconv.ParseUint(r.Fee, 10, 64)

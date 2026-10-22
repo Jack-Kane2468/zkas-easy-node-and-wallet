@@ -16,6 +16,9 @@ func (c Client) SelectedHistory(ctx context.Context, expectedAddress string, off
 	if err != nil {
 		return status, page, err
 	}
+	if status.Error != "" {
+		return status, page, fmt.Errorf("%s", status.Display())
+	}
 	if status.Loading {
 		return status, page, fmt.Errorf("Wallet is opening. Wait a moment, then click Refresh")
 	}

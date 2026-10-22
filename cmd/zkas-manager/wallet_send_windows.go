@@ -20,6 +20,7 @@ func (m *manager) walletPayment(consolidate bool) {
 	if w == nil {
 		return
 	}
+	m.rememberWalletOpen(w.ID)
 	if w.Seed == "" {
 		m.walletError(fmt.Errorf("This is a view-only wallet. Import its spending key or phrase to send"))
 		return

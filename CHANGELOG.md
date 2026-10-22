@@ -1,3 +1,27 @@
+# 0.9.18-preview — Passive wallet selection and targeted rescans
+
+- Selecting a ZKas wallet no longer opens it automatically. Wallets explicitly opened in this manager remain eligible for status polling for 30 minutes; locking the vault clears that session state.
+- Show a plain instruction to run the ZKas node when the local wallet backend is unavailable.
+- Shorten the backup-section button to Show spending key.
+- Add Rescan stuck wallets under Settings → ZKas → Wallet maintenance. Candidates require repeated checkpoint refusals in the recent backend log, a matching current checkpoint and a live confirmation that the wallet is opening and the node still rejects that checkpoint.
+- Add wallet-specific recovery buttons beside checkpoint diagnostic messages inside the wallet-backend log view. Each button targets only one uniquely matched current registration, including external bot registrations. Ambiguous matches have no action. Matches and rejection are rechecked after confirmation; stale or resolved cases are skipped.
+
+Rescans use the official API and retain its history-availability check. Wallet keys and registrations are kept. No daemon binaries or daemon source were changed.
+
+# 0.9.17-preview — ZKas wallet selector fixes
+
+- Move Show spending key and account index into Backup and viewing keys.
+- Pause background interface updates while the ZKas wallet dropdown is open.
+- Apply a wallet selection after the list closes, suppress duplicate selection events and preserve the prior selection when canceled.
+- Guard programmatic wallet-list changes and avoid reapplying unchanged enabled states and balance text.
+
+Includes the spending-key display, per-wallet rescan, checkpoint diagnostics and received-output memo support introduced in 0.9.16. No node or wallet daemon changes.
+
+# 0.9.16-preview — ZKas wallet controls and received memos
+
+- Added spending-key/account-index display, selected-wallet rescan and checkpoint diagnostics.
+- Displayed received-output memos and address/amount breakdowns.
+
 # 0.9.15-preview
 
 - Settings → ZKas now offers a rescan for all registered wallets, including bot/application wallets, using the official backend API. Keys and registrations are retained.

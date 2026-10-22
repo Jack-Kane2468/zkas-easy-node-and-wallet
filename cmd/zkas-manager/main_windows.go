@@ -165,9 +165,13 @@ func main() {
 }
 
 type manager struct {
-	rescanButton *walk.PushButton
-	rescanStatus *walk.TextLabel
-	miningUpdate *walk.PushButton
+	rescanButton      *walk.PushButton
+	stuckRescanButton *walk.PushButton
+	logOwners         map[string][]string
+	logOwnersChecked  time.Time
+	logOwnersBusy     bool
+	rescanStatus      *walk.TextLabel
+	miningUpdate      *walk.PushButton
 	chainsUI
 	kaspaSettingsUI
 	kaspaSharingUI
@@ -293,6 +297,7 @@ func (m *manager) create() error {
 						Label{Text: "The defaults suit most users. Review the options below, then install."},
 						PushButton{AssignTo: &m.install, Text: "Install / repair components", OnClicked: m.installAction},
 						GroupBox{Title: "Wallet maintenance", Layout: VBox{}, Children: []Widget{
+							PushButton{AssignTo: &m.stuckRescanButton, Text: "Rescan stuck wallets…", OnClicked: m.rescanStuckWallets},
 							PushButton{AssignTo: &m.rescanButton, Text: "Rescan all ZKas wallets…", OnClicked: m.rescanZKasWallets},
 							TextLabel{AssignTo: &m.rescanStatus, Text: "Rebuild wallet balances and history from the beginning. Includes bot and application wallets registered on this node.", MinSize: Size{Width: 240}},
 						}},
@@ -350,6 +355,7 @@ func (m *manager) create() error {
 	if e != nil {
 		return e
 	}
+	m.logs.rescan = m.rescanLogWallet
 	m.refreshLogs()
 	for _, u := range m.minePages {
 		u.detailsChanged()
@@ -448,6 +454,9 @@ func (m *manager) create() error {
 				if tab == 2 && m.mainTabs.CurrentIndex() == 2 {
 					m.applyMiningDashboard(miningTexts)
 				}
+				if m.walletPickerOpen {
+					return
+				}
 				if m.walletStatus.Text() != walletText {
 					m.walletStatus.SetText(walletText)
 				}
@@ -455,6 +464,9 @@ func (m *manager) create() error {
 			})
 		}
 	}()
+	if e := m.trackWalletPicker(); e != nil {
+		return e
+	}
 	preventWheelChanges(m.window.Handle())
 	m.refresh(hostReply{}, fmt.Errorf("initial"), node.NodeInfo{}, nil)
 	return nil
@@ -505,6 +517,9 @@ func (m *manager) endpointText() string {
 }
 func (m *manager) setProgress(s string) { m.onUI(func() { m.progress.SetText(s) }) }
 func (m *manager) refresh(r hostReply, hostErr error, info node.NodeInfo, rpcErr error) {
+	if m.walletPickerOpen {
+		return
+	}
 	installed := m.cfg.Version != ""
 	m.setupSection.SetVisible(!installed)
 	running := hostErr == nil && r.Running
@@ -548,6 +563,7 @@ func (m *manager) refresh(r hostReply, hostErr error, info node.NodeInfo, rpcErr
 	for _, w := range []walk.Widget{m.data, m.grpc, m.ws, m.enableWS, m.mode, m.auto, m.browse, m.enableWallet, m.walletPort, m.resident} {
 		w.SetEnabled(!m.busy && !active)
 	}
+	m.stuckRescanButton.SetEnabled(!m.busy && serviceActive(m.root, "wallet"))
 	m.rescanButton.SetEnabled(!m.busy && serviceActive(m.root, "wallet"))
 	m.install.SetEnabled(!m.busy && !active)
 	m.start.SetEnabled(!m.busy && installed && (!serviceActive(m.root, "node") || m.cfg.EnableWallet && !serviceActive(m.root, "wallet")))

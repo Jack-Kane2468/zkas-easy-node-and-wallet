@@ -24,7 +24,7 @@ func RegisteredWalletTokens(root string) ([]string, error) {
 	}
 	var tokens []string
 	for _, entry := range entries {
-		if entry.IsDir() || entry.Type()&os.ModeSymlink != 0 || !strings.HasSuffix(entry.Name(), ".json") {
+		if strings.HasPrefix(entry.Name(), ".") || entry.IsDir() || entry.Type()&os.ModeSymlink != 0 || !strings.HasSuffix(entry.Name(), ".json") {
 			continue
 		}
 		data, err := os.ReadFile(filepath.Join(root, "wallets", entry.Name()))

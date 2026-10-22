@@ -14,18 +14,24 @@ import (
 	"github.com/lxn/walk"
 	. "github.com/lxn/walk/declarative"
 	"golang.org/x/sys/windows"
+	"zkas-node-manager/internal/node"
 	"zkas-node-manager/internal/wallet"
 )
 
 type walletUI struct {
-	vault          *wallet.Vault
-	vaultPassword  string
-	selectedWallet string
-	walletPicker   *walk.ComboBox
-	walletState    *walk.Label
-	walletAddress  *walk.LineEdit
-	walletBalance  *walk.TextLabel
-	walletHistory  *walk.TextEdit
+	openedWallets                                                map[string]time.Time
+	checkpointProbe                                              node.CheckpointProbe
+	walletPickerChanging, walletPickerOpen, walletPickerAccepted bool
+	walletPickerStart                                            int
+	walletPickerProc                                             uintptr
+	vault                                                        *wallet.Vault
+	vaultPassword                                                string
+	selectedWallet                                               string
+	walletPicker                                                 *walk.ComboBox
+	walletState                                                  *walk.Label
+	walletAddress                                                *walk.LineEdit
+	walletBalance                                                *walk.TextLabel
+	walletHistory                                                *walk.TextEdit
 }
 
 func (m *manager) walletTab() TabPage {
@@ -53,9 +59,10 @@ func (m *manager) personalWalletPage() TabPage {
 		TextLabel{Text: "Extra receiving addresses (your canary addresses) all receive into this wallet. They are not separate wallets or theft alarms.", MinSize: Size{Width: 240}},
 		TextLabel{AssignTo: &m.walletBalance, Text: "Unlock and select a wallet to view its balance.", MinSize: Size{Width: 240}},
 		Composite{Layout: HBox{}, Children: []Widget{button("Refresh / sync", m.syncWallet), button("Show history", m.showWalletHistory), button("Send ZKAS…", m.sendWallet)}},
-		button("Consolidate notes…", m.consolidateWallet),
+		Composite{Layout: HBox{}, Children: []Widget{button("Consolidate notes…", m.consolidateWallet), button("Rescan this wallet…", m.rescanSelectedWallet)}},
 		TextEdit{AssignTo: &m.walletHistory, ReadOnly: true, VScroll: true, MinSize: Size{Height: 160}, Text: "Transactions and saved send receipts appear here."},
 		Label{Text: "Backup and viewing keys", Font: Font{Bold: true}},
+		button("Show spending key…", m.showSpendingKey),
 		Composite{Layout: HBox{}, Children: []Widget{button("Show recovery backup…", m.showRecovery), button("Export FVK…", func() { m.exportViewKey(false) }), button("Export OVK…", func() { m.exportViewKey(true) })}},
 		TextLabel{Text: "FVK: view incoming funds and recoverable outgoing history, without spending. OVK: outgoing viewing key; it cannot show your full balance or authorize payments. Use Wallet tools for independent viewing-key scans.", MinSize: Size{Width: 240}},
 		button("Change ZKas vault password…", m.changeZKasVaultPassword),
@@ -209,6 +216,7 @@ func (m *manager) lockVault() {
 		return
 	}
 	m.vault = nil
+	m.openedWallets = nil
 	m.vaultPassword = ""
 	m.selectedWallet = ""
 	m.rebuildWalletList()
@@ -242,18 +250,25 @@ func (m *manager) rebuildWalletList() {
 		index = 0
 		m.selectedWallet = m.vault.Wallets[0].ID
 	}
+	m.walletPickerChanging = true
+	defer func() { m.walletPickerChanging = false }()
 	m.walletPicker.SetModel(names)
 	m.walletPicker.SetCurrentIndex(index)
 	m.renderSelectedWallet()
 }
 func (m *manager) chooseWallet() {
-	if m.vault == nil || m.busy {
+	if m.walletPickerChanging || m.walletPickerOpen || m.vault == nil || m.busy {
 		return
 	}
 	i := m.walletPicker.CurrentIndex()
-	if i >= 0 && i < len(m.vault.Wallets) {
-		m.selectedWallet = m.vault.Wallets[i].ID
+	if i < 0 || i >= len(m.vault.Wallets) {
+		return
 	}
+	id := m.vault.Wallets[i].ID
+	if id == m.selectedWallet {
+		return
+	}
+	m.selectedWallet = id
 	m.renderSelectedWallet()
 }
 func (m *manager) renderSelectedWallet() {
@@ -261,7 +276,7 @@ func (m *manager) renderSelectedWallet() {
 		return
 	}
 	m.walletAddress.SetText("")
-	m.walletBalance.SetText("Select a wallet and click Refresh / sync.")
+	m.walletBalance.SetText(m.idleWalletMessage())
 	m.walletHistory.SetText("")
 	if m.vault == nil {
 		m.walletState.SetText("Vault locked — unlock it to use your wallets.")
@@ -286,7 +301,10 @@ func (m *manager) renderSelectedWallet() {
 }
 func (m *manager) refreshWalletControls() {
 	if m.walletPicker != nil {
-		m.walletPicker.SetEnabled(!m.busy && m.vault != nil)
+		enabled := !m.busy && m.vault != nil
+		if m.walletPicker.Enabled() != enabled {
+			m.walletPicker.SetEnabled(enabled)
+		}
 	}
 }
 func (m *manager) addWallet(importing, viewOnly bool) {
@@ -359,7 +377,7 @@ func (m *manager) addWallet(importing, viewOnly bool) {
 				*upgraded = old
 				return e
 			}
-			m.onUI(func() { m.selectedWallet = existingID; m.rebuildWalletList() })
+			m.onUI(func() { m.selectedWallet = existingID; m.rememberWalletOpen(existingID); m.rebuildWalletList() })
 			return nil
 		}
 		id, e := wallet.NewID()
@@ -400,7 +418,7 @@ func (m *manager) addWallet(importing, viewOnly bool) {
 			m.onUI(func() { m.vault.Wallets = m.vault.Wallets[:len(m.vault.Wallets)-1] })
 			return e
 		}
-		m.onUI(func() { m.selectedWallet = id; m.rebuildWalletList() })
+		m.onUI(func() { m.selectedWallet = id; m.rememberWalletOpen(id); m.rebuildWalletList() })
 		return nil
 	})
 }
@@ -409,6 +427,7 @@ func (m *manager) syncWallet() {
 	if w == nil {
 		return
 	}
+	m.rememberWalletOpen(w.ID)
 	id, token, fvk, expectedAddress := w.ID, w.Token, w.FVK, w.Address
 	port := m.cfg.WalletPort
 	m.action(func() error {
@@ -431,11 +450,14 @@ func (m *manager) syncWallet() {
 		if s.Address != "" && s.Address != expectedAddress {
 			return fmt.Errorf("Wallet API returned a different address; refresh cancelled")
 		}
+		s = m.selectedWalletStatus(ctx, token, s)
 		var history json.RawMessage
 		historyErr := c.Do(ctx, "GET", "/api/wallet/history?limit=30", nil, &history)
 		m.onUI(func() {
 			if m.selectedWallet == id {
-				m.walletBalance.SetText(s.Display())
+				if text := s.Display(); m.walletBalance.Text() != text {
+					m.walletBalance.SetText(text)
+				}
 				if historyErr == nil {
 					m.walletHistory.SetText(wallet.HistoryDisplay(history) + "\r\n" + receiptText(m.vault.Find(id)))
 				}
@@ -449,6 +471,7 @@ func (m *manager) newReceiveAddress() {
 	if w == nil {
 		return
 	}
+	m.rememberWalletOpen(w.ID)
 	if w.NextIndex == ^uint32(0) {
 		m.walletError(fmt.Errorf("Address index limit reached"))
 		return
@@ -654,11 +677,18 @@ func (m *manager) removeWallet() {
 // Network monitoring reads only the selected wallet's token; spending secrets
 // are never copied to status requests or public sharing configuration.
 func (m *manager) walletPollSnapshot() (string, string, int) {
-	if m.vault == nil || m.busy {
+	if m.vault == nil || m.busy || m.walletPickerOpen {
 		return "", "", 0
 	}
 	w := m.vault.Find(m.selectedWallet)
 	if w == nil || w.SignedOut {
+		return "", "", 0
+	}
+	if time.Since(m.openedWallets[w.ID]) > 30*time.Minute {
+		text := m.idleWalletMessage()
+		if m.walletBalance.Text() != text {
+			m.walletBalance.SetText(text)
+		}
 		return "", "", 0
 	}
 	return w.ID, w.Token, m.cfg.WalletPort
@@ -670,8 +700,11 @@ func (m *manager) pollPersonalWallet(id, token string, port int) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	s, e := (wallet.Client{Port: port, Token: token}).Status(ctx)
+	if e == nil {
+		s = m.selectedWalletStatus(ctx, token, s)
+	}
 	m.onUI(func() {
-		if m.mainTabs.CurrentIndex() != 1 || m.vault == nil || m.selectedWallet != id || m.busy {
+		if m.mainTabs.CurrentIndex() != 1 || m.vault == nil || m.selectedWallet != id || m.busy || m.walletPickerOpen {
 			return
 		}
 		w := m.vault.Find(id)
@@ -679,12 +712,18 @@ func (m *manager) pollPersonalWallet(id, token string, port int) {
 			return
 		}
 		if e != nil {
-			m.walletBalance.SetText("Local wallet API unavailable. Start services in Overview, then Refresh / sync.")
+			if !serviceActive(m.root, "wallet") || strings.Contains(e.Error(), "Local wallet API unavailable") {
+				m.walletBalance.SetText("Run the ZKas node to sync this wallet.")
+			} else {
+				m.walletBalance.SetText("Wallet status unavailable: " + e.Error())
+			}
 		} else {
 			if s.Address != "" && s.Address != w.Address {
 				m.walletBalance.SetText("Wallet API identity mismatch. Stop and check the local wallet service.")
 			} else {
-				m.walletBalance.SetText(s.Display())
+				if text := s.Display(); m.walletBalance.Text() != text {
+					m.walletBalance.SetText(text)
+				}
 			}
 		}
 	})

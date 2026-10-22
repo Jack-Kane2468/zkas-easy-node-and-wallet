@@ -33,6 +33,7 @@ func (m *manager) showWalletHistory() {
 	if w == nil {
 		return
 	}
+	m.rememberWalletOpen(w.ID)
 	// Capture only this profile's public identity and API token, never its seed.
 	name, address := w.Name, w.Address
 	client := wallet.Client{Port: m.cfg.WalletPort, Token: w.Token}
@@ -62,7 +63,7 @@ func (m *manager) showWalletHistory() {
 			return
 		}
 		r := model.rows[i]
-		details.SetText(fmt.Sprintf("Type: %s\r\nTime: %v\r\nAmount: %v ZKAS\r\nAddress: %s\r\nTransaction ID: %s\r\nFee (when known): %v\r\nMemo: %s", r.Kind, model.Value(i, 1), model.Value(i, 2), r.Recipient, r.TxID, model.Value(i, 6), r.Memo))
+		details.SetText(fmt.Sprintf("Type: %s\r\nTime: %v\r\nAmount: %v ZKAS\r\nAddress: %s\r\nTransaction ID: %s\r\nFee (when known): %v\r\nMemo: %s", r.Kind, model.Value(i, 1), model.Value(i, 2), r.Recipient, r.TxID, model.Value(i, 6), r.DisplayMemo()) + r.CreditDetails())
 	}
 	load = func() {
 		if loading || closed {

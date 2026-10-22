@@ -8,15 +8,16 @@ import (
 )
 
 type HistoryRow struct {
-	Kind      string `json:"kind"`
-	TxID      string `json:"txid"`
-	Timestamp uint64 `json:"timestamp"`
-	DAA       uint64 `json:"daaScore"`
-	Amount    string `json:"amountSompiExact"`
-	Fee       string `json:"feeSompiExact"`
-	FeeKnown  bool   `json:"feeKnown"`
-	Recipient string `json:"recipient"`
-	Memo      string `json:"memo"`
+	Credits   []HistoryCredit `json:"credits"`
+	Kind      string          `json:"kind"`
+	TxID      string          `json:"txid"`
+	Timestamp uint64          `json:"timestamp"`
+	DAA       uint64          `json:"daaScore"`
+	Amount    string          `json:"amountSompiExact"`
+	Fee       string          `json:"feeSompiExact"`
+	FeeKnown  bool            `json:"feeKnown"`
+	Recipient string          `json:"recipient"`
+	Memo      string          `json:"memo"`
 }
 type HistoryPage struct {
 	Total       int          `json:"total"`
