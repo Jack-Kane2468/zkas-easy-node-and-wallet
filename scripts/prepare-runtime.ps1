@@ -3,7 +3,7 @@ $root = Split-Path $PSScriptRoot -Parent
 $runtime = Join-Path $root 'wallet-runtime'
 $manifest = Get-Content (Join-Path $root 'cmd/zkas-manager/wallet_runtime_hashes_windows.go') -Raw
 $matches = [regex]::Matches($manifest, '"([^"]+)":\s*"([0-9a-f]{64})"')
-if ($matches.Count -ne 10) { throw 'Unexpected runtime manifest; review before downloading anything.' }
+if ($matches.Count -ne 11) { throw 'Unexpected runtime manifest; review before downloading anything.' }
 $nodePath = Join-Path $runtime 'node.exe'
 $nodeHash = ($matches | Where-Object { $_.Groups[1].Value -eq 'node.exe' }).Groups[2].Value
 if (-not (Test-Path $nodePath)) {
@@ -38,4 +38,4 @@ foreach ($match in $matches) {
     if (-not (Test-Path $file -PathType Leaf)) { throw "Missing runtime file: $file" }
     if ((Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant() -ne $match.Groups[2].Value) { throw "Runtime checksum mismatch: $file" }
 }
-Write-Host 'All ten wallet runtime files verified.'
+Write-Host 'All eleven wallet runtime files verified.'

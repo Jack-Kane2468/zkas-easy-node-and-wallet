@@ -11,3 +11,7 @@ The viewer shows a bounded tail of up to 128 KiB. A held snapshot stays visible 
 ## Resource use
 
 New entries are appended and colored incrementally. The viewer retains a bounded recent-log window and has no undo history. Unchanged files are not reread, and hidden, paused or held log views do not read new log content. Regular status polling pauses while minimized. A wallet keepalive remains every 30 seconds to retain active-wallet behavior; node and wallet services run independently.
+
+## Bot log
+
+Select **Bot log** in Logs to inspect Telegram startup, request progress, wallet refresh stages and delivery failures. A running request produces a progress entry every ten seconds. Kaspa refresh output distinguishes node synchronization from account-balance readiness. The log omits command arguments, tokens, messages, wallet names, addresses and signing material. It rotates at 2 MB, retaining one previous file.

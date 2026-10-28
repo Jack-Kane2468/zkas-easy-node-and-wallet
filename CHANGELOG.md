@@ -1,3 +1,130 @@
+# ZKas Node Manager 0.9.28-preview
+
+- Opening a locked Telegram wallet now prompts for the vault password, then resumes the selected wallet screen. Existing remote-unlock and per-chain permission settings still apply.
+- Removed Unlock / Lock controls from the main menu. Lock Telegram wallet is available inside wallet screens.
+- Wallet screens and password prompts report whether that chain's desktop manager vault is locked or unlocked.
+- Removed the requirement to lock the manager before using Kaspa in Telegram. Desktop and Telegram maintain independent logical sessions through one serialized SDK storage owner. Wallet/account selections, credentials, lock state and payment review tokens remain separate. Opening in Telegram never unlocks the desktop.
+- Retains the 0.9.27 balance fallback, copy buttons, separate chain permissions and optional tray background mode.
+
+## Use
+
+Stop the previous manager, extract the included Windows ZIP and run ZKasNodeManager.exe with its wallet-runtime folder. In Bot, enable the desired chain and remote lock/unlock if you want password prompts in Telegram. Open Wallets in Telegram. Local Bot-tab unlock buttons remain available when remote unlocking is disabled. Existing saved settings and application data are retained.
+
+## Validation
+
+Core Go tests and Windows-target vet passed; Windows amd64 GUI executable built with Go 1.26.8 and the embedded manifest. Official SDK offline tests cover two logical sessions on the same storage, independent locks and selections, rejected-password/filename isolation and address persistence. Adapter tests cover session-bound payment tokens, switching and replay rejection. Telegram tests cover prompted opening, resumption, wrong passwords, permission checks and main-menu cleanup.
+
+Native Windows UI/tray behavior, live Telegram and live-node transactions have not been tested in this Linux environment.
+
+
+# ZKas Node Manager 0.9.27-preview
+
+- Kaspa balance header falls back to local-node UTXOs across all generated receive/change addresses instead of waiting indefinitely for an SDK balance event. Exact integer arithmetic; signing readiness remains SDK-controlled.
+- Separate ZKas and Kaspa Telegram access checkboxes; direct commands, menus, alerts and sends obey the selected chain.
+- Optional remote vault lock/unlock with Telegram-only sessions, expiring prompts, rate limiting and attempted password-message deletion. Local Bot-tab unlock buttons are also available.
+- Stop bot when manager closes defaults ON. Uncheck before Save and start bot to keep it in the tray. Reopen or quit through the tray icon. Desktop wallets lock when the window closes into the tray.
+- Copy-address / transaction buttons, fewer duplicate wallet labels, and no redundant selected-account button.
+
+## Use
+
+Extract the complete Windows ZIP and run ZKasNodeManager.exe with its wallet-runtime folder. Stop the older manager before replacing files. Existing application data stays in its existing location. Select the desired chain permissions in Bot, choose shutdown behavior, and Save and start bot. Unlock Telegram sessions from the Bot tab or enable remote unlock.
+
+## Validation and limits
+
+Built for Windows amd64 with Go 1.26.8 and an embedded Windows manifest. Core Go tests, Windows-target vet, Kaspa SDK offline integration tests, status/balance tests and address tests passed. The Windows tray UI and a live Telegram / live-node session have not been exercised in this Linux build environment. Background mode keeps the manager process resident; it is not a separate Windows service. The SDK's wallet storage is used by only one desktop/Telegram Kaspa runtime at a time.
+
+
+# v0.9.26 Preview — Bot Logs and Kaspa Refresh Handling
+
+- Add Bot log to the Logs tab: startup/shutdown, polling and delivery failures, request progress, Kaspa refresh stages, timeout diagnostics and balance readiness. Logs rotate at 2 MB and omit Telegram content, tokens, wallet names, addresses and signing material.
+- Use the same local-wallet availability check for the manager and Telegram; reject old buttons targeting unavailable wallets.
+- Refresh an already connected Kaspa wallet without reconnecting/reactivating it or rewriting the encrypted vault backup on every refresh.
+- Give Telegram Kaspa open/refresh requests a 40-second request deadline, including waiting for the subprocess lock. A queued reader never terminates an operation already in progress. An active timed-out request stops its wallet subprocess; it is never replayed automatically.
+- Show a Telegram refresh-progress message. Distinguish disconnected, node-not-synced and node-synced/wallet-balance-pending states. Surface SDK and missing-UTXO-index errors and handle unavailable balance events without treating them as zero.
+
+The reported missing live wallet balance is not confirmed resolved. The updated status and Bot log expose the relevant state without pretending a synced node guarantees the wallet has received its balance.
+
+Official node, walletd, Kaspa SDK binaries and wallet/vault formats are unchanged.
+
+# v0.9.25 Preview — Kaspa Wallet Startup Fix
+
+- Fix a Kaspa wallet process crash when reconnecting or opening another wallet. The manager now starts SDK processing once per subprocess and reuses it across wallet changes and connection attempts.
+- Remove the permanent wallet error-details button. Wallet and manager operation error popups now include selectable details and a Copy details button.
+- Preserve Telegram behavior: typed commands receive fresh replies; button interactions edit their attached menus.
+
+No node, walletd, official Kaspa SDK, wallet format or vault format changes. Existing wallets and settings are retained. Payment requests are never automatically retried.
+
+Validation: reproduced the original SDK trap with the same five WebAssembly stack locations; added a regression test for repeated connection attempts and opening another wallet after processing starts. Internal Go tests, offline SDK tests, Windows cross-build and vet pass. Windows GUI execution and live-node/funded transactions were not tested on the Linux build host.
+
+# v0.9.24 Preview — Telegram Replies and Kaspa Crash Details
+
+- Typed Telegram commands and payment inputs receive a fresh reply at the bottom of the chat. Button clicks continue editing the message containing that button. A long-running typed request may update its new progress reply with the result.
+- Kaspa wallet errors retain safe SDK stack locations, fixed runtime error categories and the last open/start/connect/activate stage. A Show / copy wallet error details button makes the report copyable.
+- Keep bounded raw stderr only in process memory; do not include raw panic values, private keys or full local paths in the crash report.
+
+The reported Kaspa WebAssembly process crash is not yet diagnosed or claimed fixed. These changes preserve evidence needed to investigate it; restarting alone did not resolve the reported failure. No node, walletd or official Kaspa SDK binaries were changed.
+
+Validation: Telegram command-versus-button routing test, existing internal tests, Windows build/vet and offline SDK tests. Live Windows GUI and the reported crash have not been reproduced here.
+
+# v0.9.23 Preview — Kaspa Wallet Process Recovery
+
+- Detect stopped Kaspa wallet subprocesses instead of retaining a dead process handle indefinitely.
+- Opening the selected wallet starts a fresh process when necessary; wallet operations and payments are not automatically replayed.
+- Opening a desktop Kaspa wallet also connects it to the configured local wallet RPC. Opening an already-selected wallet reconnects it.
+- Clear stale open/balance state when the wallet process exits, so unavailable wallet actions are no longer presented as ready.
+- Require a startup-ready response and include a safe diagnostic category and exit code when the process stops. Raw runtime diagnostics and wallet secrets are not forwarded or saved to disk.
+- Retain v0.9.22's startup correction and optional Telegram monitoring/spending-limit features.
+
+The recovery defects are addressed; the original Windows subprocess exit has not been reproduced. If it recurs, the new error provides additional evidence. Official node, walletd and Kaspa SDK binaries are unchanged.
+
+Validation: internal Go tests, Windows cross-build/vet, and offline Kaspa SDK wallet tests including continued operation after a failed connection attempt. Live Windows GUI and funded sends remain untested here.
+
+# v0.9.22 Preview — Startup Fix, Bot Alerts and Spending Limits
+
+- Fix manager startup failure (`value out of range`) caused by an integer default in the Bot tab's numeric input. Numeric defaults now use the type required by the Windows UI library; a regression check covers all manager NumberEdit literals.
+- Optional mining-down alerts for persistent worker/hashrate shortfalls, statistics API outages and unexpected bridge stops, with recovery notifications.
+- Optional daily Telegram summary at a configurable local time, with honest observation coverage and saved delivery state.
+- Optional receive-payment notifications for available ZKas vault/FVK wallets and the currently open Kaspa account, with history baselines and duplicate suppression.
+- Optional per-payment and rolling 24-hour Telegram spending limits, separately for ZKAS/KAS, including fees. Reservations persist across restarts.
+
+All four features default off. Configure them in the Bot tab. The manager's Kaspa runtime adapter now reports structured fee and incoming-history data; official node, walletd, signer and Kaspa SDK binaries are unchanged.
+
+Includes the Windows x64 manager ZIP, source and SHA256SUMS.txt. Automated Go tests, Windows cross-build/vet and offline Kaspa runtime tests are covered. Live Windows UI, Telegram delivery, mining events and funded transactions have not been tested in this environment.
+
+# v0.9.21 Preview — Telegram Alerts and Wallet Sending
+
+- Optional alerts for bridge-reported blocks, unexpected ZKas/Kaspa node stops, lost sync, RPC outages and stalled chain progress.
+- Guided Telegram sending for unlocked ZKas and Kaspa wallets, with payment review and a simple Confirm button. The new spending permission is off by default and separate from local payment requests.
+- Open wallets and select accounts from the unlocked Kaspa vault directly in Telegram.
+- Update menus and buttons in place; alerts remain separate messages.
+- Single-use payment confirmations, wallet/account identity checks and saved submission receipts.
+
+Includes the Windows x64 manager ZIP, source and SHA256SUMS.txt. No node, walletd, signer or bridge binaries were modified by this manager update.
+
+Validation: internal Go tests and Windows cross-build/vet checks. Live Windows UI, Telegram delivery and funded sends have not been exercised for this release.
+
+# 0.9.20-preview — Telegram menus and simple confirmations
+
+- Button menus for node status/controls, mining statistics/controls, vault wallets and FVK-only wallets, showing only enabled features.
+- Named wallet buttons with pagination, wallet action submenus, Refresh and Main menu navigation. Existing commands remain available.
+- Confirm / Cancel buttons and plain `confirm` / `cancel` replies replace typing confirmation codes. Confirmation buttons remain bound to their original request and user; stale buttons cannot approve a newer action.
+- New bot messages allow copying addresses, history and other text normally.
+- Telegram’s Menu shortcut opens the manager menu. Owner pairing, allowed IDs and permissions are preserved.
+
+The bot still runs while the manager is open. Payment requests still require local review. Walletd and node/mining binaries are unchanged.
+
+# 0.9.19-preview — Telegram bot controls
+
+- New Bot tab for a user-supplied Telegram bot token, owner-only pairing and an optional numeric user-ID allowlist.
+- Independent permissions for node status, mining statistics, node control, mining control, unlocked vault wallet viewing, separate FVK wallets, and locally reviewed ZKas payment requests.
+- Private chats only; unknown users and groups receive no replies. Service/scan/payment requests require an expiring, single-use confirmation bound to the requesting user.
+- Windows-user encryption for saved tokens, viewing keys and access settings. No private-key or recovery-phrase export over Telegram.
+- Runs while the manager is open. Closing/updating the manager stops the bot; restart it explicitly from Bot. Existing node and mining services continue independently.
+
+This release changes the manager only. It does not replace or modify walletd, change upstream download sources, or include the proposed walletd memory fixes.
+
+See BOT.md for supported commands and VALIDATION.md for testing limitations.
+
 # 0.9.18-preview — Passive wallet selection and targeted rescans
 
 - Selecting a ZKas wallet no longer opens it automatically. Wallets explicitly opened in this manager remain eligible for status polling for 30 minutes; locking the vault clears that session state.
@@ -110,6 +237,19 @@ Portable tests, offline wallet derivation/viewing vectors, Windows cross-build/s
 - Preserve running services, existing wallets and blockchain data during manager replacement.
 
 # Changelog
+
+## v0.9.21 Preview — Telegram Alerts and Wallet Sending
+
+- Optional alerts for bridge-reported blocks, unexpected ZKas/Kaspa node stops, lost sync, RPC outages and stalled chain progress.
+- Guided Telegram sending for unlocked ZKas and Kaspa wallets, with payment review and a simple Confirm button. The new spending permission is off by default and separate from local payment requests.
+- Open wallets and select accounts from the unlocked Kaspa vault directly in Telegram.
+- Update menus and buttons in place; alerts remain separate messages.
+- Single-use payment confirmations, wallet/account identity checks and saved submission receipts.
+
+Includes the Windows x64 manager ZIP, source and SHA256SUMS.txt. No node, walletd, signer or bridge binaries were modified by this manager update.
+
+Validation: internal Go tests and Windows cross-build/vet checks. Live Windows UI, Telegram delivery and funded sends have not been exercised for this release.
+
 
 ## 0.9.1-preview
 

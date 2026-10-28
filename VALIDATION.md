@@ -1,5 +1,14 @@
-# v0.9.18-preview validation
+# Validation — v0.9.28-preview
 
-Portable internal Go tests and Windows static checks passed. Windows x64 GUI executable cross-built. Regression tests cover unique bot-wallet matching, ambiguous checkpoint rejection, stale checkpoint rejection and recent-loop classification with distinct timestamps. Existing tests cover rescan request payloads and partial refusal.
+Passed in Linux with Go 1.26.8:
+- `go test ./internal/...`
+- `GOOS=windows GOARCH=amd64 go vet ./...`
+- Windows amd64 GUI build with an embedded app manifest.
+- `node scripts/test-kaspa-wallet.cjs` (official SDK, public vectors, offline).
+- `node scripts/test-kaspa-status.cjs` (UTXO fallback totals, multi-page exact sums, cache, disconnect/lock, real zero vs missing balance).
+- Address grouping and incoming-notification tests.
+- Telegram chain-permission, unlock-expiry/cancel/revocation, prompted opening and resumption, wrong-password handling, and menu tests.
+- Official SDK tests with desktop and Telegram logical sessions: independent locks, wallet selections, shared address persistence and failed-open isolation.
+- Session-bound payment token isolation, switching, and replay rejection using a mock SDK (no broadcasts).
 
-Runtime hashes, archive integrity, executable version and SHA256 manifests are checked during packaging. Native Windows inline-button interaction, physical scrolling and funded live rescans have not been tested in this build environment.
+Not exercised here: native Windows UI/tray lifecycle, live Telegram API calls, live-node balance queries or transaction broadcasting. This preview requires a Windows smoke test before operational use.

@@ -15,6 +15,7 @@ import (
 var kaspaVaultID = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,100}$`)
 
 func (m *manager) kwUnlockVault() bool {
+
 	if m.kwVault != nil {
 		return true
 	}
@@ -89,7 +90,7 @@ func (m *manager) kwVaultList() {
 	m.kwFiles = nil
 	idx := -1
 	for _, w := range m.kwVault.Wallets {
-		if _, e := os.Stat(filepath.Join(m.root, "kaspa-wallets", w.ID+".wallet")); e != nil {
+		if !m.kwWalletAvailable(w.ID) {
 			continue
 		}
 		if w.ID == m.kwState.Filename {
@@ -262,4 +263,12 @@ func (m *manager) kwChangePassword() {
 		m.kwVaultPassword = v[0]
 		return nil
 	})
+}
+
+func (m *manager) kwWalletAvailable(id string) bool {
+	if m.kwVault == nil || !kaspaVaultID.MatchString(id) || m.kwVault.Find(id) == nil {
+		return false
+	}
+	st, err := os.Stat(filepath.Join(m.root, "kaspa-wallets", id+".wallet"))
+	return err == nil && st.Mode().IsRegular()
 }

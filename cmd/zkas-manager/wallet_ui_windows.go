@@ -131,7 +131,7 @@ func (m *manager) showText(title, note, text string, requireBackup bool) bool {
 	return e == nil && result == walk.DlgCmdOK
 }
 func (m *manager) walletError(e error) {
-	walk.MsgBox(m.window, "Wallet", e.Error(), walk.MsgBoxIconWarning)
+	m.showOperationError("Wallet", e)
 }
 func (m *manager) activeWallet() *wallet.Wallet {
 	if m.busy || m.vault == nil {

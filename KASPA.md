@@ -88,3 +88,7 @@ If an older wallet has no recovery phrase saved in the vault, supply its origina
 ## Connect from another local device
 
 In Sharing → Kaspa, enable Local network / Wi-Fi and select this PC's local address. Apply, then use the displayed `HOST:PORT` for gRPC or `ws://HOST:PORT` for Borsh/JSON. LAN URLs use separate protocol ports and do not have the HTTPS gateway's `/borsh` or `/json` suffix. See SHARING.md for network setup and access limits.
+
+## Wallet process recovery
+
+The wallet runtime is separate from kaspad. A synced node does not mean the wallet has connected or synchronized its balance. Opening a wallet connects it to the configured local wallet RPC; opening the selected wallet again reconnects it. If the runtime exits, the manager clears stale state and starts a new process on the next Open request. It does not automatically repeat sends. A safe cause category and exit code are included when available.

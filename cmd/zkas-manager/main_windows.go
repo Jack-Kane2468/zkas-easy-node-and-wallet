@@ -165,6 +165,7 @@ func main() {
 }
 
 type manager struct {
+	botUI
 	rescanButton      *walk.PushButton
 	stuckRescanButton *walk.PushButton
 	logOwners         map[string][]string
@@ -337,7 +338,7 @@ func (m *manager) create() error {
 				}}, m.kaspaSettingsTab()}}}},
 				{Title: "Logs", Layout: VBox{}, Children: []Widget{
 					Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
-						ComboBox{AssignTo: &m.logSelect, Model: []string{"ZKas node log", "Wallet backend log", "ZKas mining log", "Tor log", "Kaspa node log", "Kaspa / merged mining log", "Kaspa Tor log"}, CurrentIndex: 0, OnCurrentIndexChanged: m.refreshLogs},
+						ComboBox{AssignTo: &m.logSelect, Model: []string{"ZKas node log", "Wallet backend log", "ZKas mining log", "Tor log", "Kaspa node log", "Kaspa / merged mining log", "Kaspa Tor log", "Bot log"}, CurrentIndex: 0, OnCurrentIndexChanged: m.refreshLogs},
 						PushButton{Text: "Latest", OnClicked: m.latestLog},
 						CheckBox{AssignTo: &m.logPause, Text: "Pause"},
 						PushButton{Text: "Open log folder", OnClicked: func() { m.open(filepath.Join(m.root, "logs")) }},
@@ -345,6 +346,7 @@ func (m *manager) create() error {
 					Label{Text: "Scroll up to hold your place. Latest resumes following. Colors: red errors, amber warnings, cyan sync.", EllipsisMode: EllipsisEnd},
 					Composite{AssignTo: &m.logContainer, Layout: VBox{MarginsZero: true, Spacing: 0}, Children: []Widget{HSpacer{}, VSpacer{}}, MinSize: Size{Width: 100, Height: 120}, StretchFactor: 1},
 				}},
+				m.botTab(),
 			}},
 			Label{AssignTo: &m.progress, Text: "Connected to your existing installation.", EllipsisMode: EllipsisEnd},
 		}}).Create()
@@ -355,6 +357,7 @@ func (m *manager) create() error {
 	if e != nil {
 		return e
 	}
+	m.initBot()
 	m.logs.rescan = m.rescanLogWallet
 	m.refreshLogs()
 	for _, u := range m.minePages {
@@ -365,8 +368,23 @@ func (m *manager) create() error {
 			*canceled = true
 			walk.MsgBox(m.window, "Operation in progress", "Please wait for the current operation to finish. A payment may still be preparing or broadcasting.", walk.MsgBoxIconInformation)
 		} else {
+			if m.botCancel != nil && m.botConfig.KeepRunning && !m.botExit {
+				*canceled = true
+				if err := m.botBackground(); err != nil {
+					walk.MsgBox(m.window, "Background bot", "Could not create the tray icon: "+err.Error(), walk.MsgBoxIconError)
+				}
+				return
+			}
+			m.botLockSessions()
+			if m.botTray != nil {
+				m.botTray.Dispose()
+				m.botTray = nil
+			}
 			if m.toolsCancel != nil {
 				m.toolsCancel()
+			}
+			if m.botCancel != nil {
+				m.botCancel()
 			}
 			m.closed.Store(true)
 			if !m.chainsPolling {
@@ -590,8 +608,8 @@ func (m *manager) action(work func() error) {
 		m.onUI(func() {
 			m.busy = false
 			if e != nil {
-				m.progress.SetText("Action did not complete. See the details below.")
-				walk.MsgBox(m.window, "ZKas Node Manager", e.Error(), walk.MsgBoxIconError)
+				m.progress.SetText("Action did not complete. See the error details.")
+				m.showOperationError("ZKas Node Manager", e)
 			} else {
 				if m.chainCompletion != "" {
 					m.progress.SetText(m.chainCompletion)

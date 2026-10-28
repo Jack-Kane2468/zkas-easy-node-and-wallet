@@ -1,0 +1,10 @@
+'use strict';
+const assert=require('assert/strict');
+const {incomingReceipts}=require('../wallet-runtime/kaspa-notifications.cjs');
+const tx={id:'a'.repeat(64),unixtimeMsec:1800000000000n,data:{type:'incoming',data:{value:123456789n,utxoEntries:[{address:'kaspa:test'},{address:'kaspa:test'}]}}};
+const money=n=>`${n/100000000n}.${String(n%100000000n).padStart(8,'0')}`;
+const result=incomingReceipts([tx],money);
+assert.equal(result.length,1);assert.equal(result[0].amount,'1.23456789');assert.equal(result[0].address,'kaspa:test');assert.equal(result[0].timestampMS,1800000000000);
+for(const type of ['outgoing','change','reorg','batch','transfer-incoming','stasis'])assert.equal(incomingReceipts([{...tx,data:{...tx.data,type}}],money).length,0);
+for(const bad of [{...tx,unixtimeMsec:0},{...tx,id:''},{...tx,data:{type:'incoming',data:{value:undefined}}},{...tx,data:{type:'incoming',data:{value:123456789}}}])assert.equal(incomingReceipts([bad],money).length,0);
+console.log('PASS: incoming receipt values/addresses, no change/reorg/internal-transfer alerts, missing/unsafe values rejected.');

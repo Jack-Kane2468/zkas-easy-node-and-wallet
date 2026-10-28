@@ -24,8 +24,9 @@ Windows may warn because the EXE is unsigned. Verify the download source and che
 | Sharing | Connect devices on your local network, configure incoming peers, HTTPS wallet API access, or personal/public Tor onion access. |
 | Settings | Node storage and ports, startup options, installation and uninstall. |
 | Logs | Read colored service logs, follow the newest entries, or pause to inspect older output. |
+| Bot | Run a private Telegram bot with editable menus, alerts, optional wallet sending/limits, daily summaries and receive notifications, an owner/ID allowlist and selectable permissions. |
 
-Closing the window leaves services running. These are background processes owned by your Windows user, not Windows Service Control Manager services. ZKas autostart runs at sign-in. Kaspa has its own optional sign-in startup setting. Mining starts manually.
+Closing the window stops the Telegram bot and leaves node/mining services running. These are background processes owned by your Windows user, not Windows Service Control Manager services. ZKas autostart runs at sign-in. Kaspa has its own optional sign-in startup setting. Mining starts manually.
 
 The built-in wallet stores secrets in a password-encrypted local vault. Keep your own recovery backup; uninstall retains user data. Never share seeds, spending keys, vault files, API tokens, or viewing keys in issues. Viewing keys reveal private financial history even though they cannot spend funds.
 
@@ -40,6 +41,8 @@ Use **Overview → Check manager updates** to check for newer application releas
 Local-only use is the default. Copy the API addresses shown in Overview instead of guessing ports. Sharing is optional; a working local node does not need router forwarding. Public API hosting consumes resources and exposes the operator's network; the gateway's concurrency/body limits are not a full abuse-prevention system. See [Sharing](SHARING.md).
 
 ## Guides
+
+- [Telegram bot](BOT.md) — owner pairing, permissions, wallet viewing/sending, alerts and remote service commands.
 
 - [Logs](LOGS.md) — following, pausing and reading service output.
 

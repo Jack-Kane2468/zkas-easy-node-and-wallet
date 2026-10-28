@@ -114,7 +114,7 @@ func validateData(root string, c node.Config) error {
 	if e := c.Validate(); e != nil {
 		return e
 	}
-	for _, reserved := range []string{"manager-versions", "service-hosts", "manager-updates", "components", "kaspa-data", "kaspa-access", "kaspa-wallets", "kaspa-vault", "personal-wallets", "wallet-runtime", "wallets", "sharing"} {
+	for _, reserved := range []string{"manager-versions", "service-hosts", "manager-updates", "components", "kaspa-data", "kaspa-access", "kaspa-wallets", "kaspa-vault", "personal-wallets", "telegram-bot", "wallet-runtime", "wallets", "sharing"} {
 		rel, err := filepath.Rel(filepath.Join(root, reserved), c.DataDir)
 		if err == nil && (rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(os.PathSeparator)))) {
 			return fmt.Errorf("Choose a ZKas data folder outside manager program folders and the Kaspa database")

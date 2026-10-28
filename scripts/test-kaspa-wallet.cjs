@@ -1,16 +1,21 @@
 'use strict';
-// Offline SDK integration tests. Public test vectors only; no network or funds.
+// SDK integration tests. Public vectors, a rejecting loopback server, no external network or funds.
 const {spawn}=require('child_process'), readline=require('readline'), assert=require('assert/strict');
 const fs=require('fs'), os=require('os'), path=require('path');
+(async()=>{
+const blocker=require('net').createServer(socket=>socket.destroy());
+await new Promise((resolve,reject)=>{blocker.once('error',reject);blocker.listen(0,'127.0.0.1',resolve)});
+try {
 const folder=fs.mkdtempSync(path.join(os.tmpdir(),'easy-kaspa-test-'));
-const p=spawn(process.execPath,[path.resolve(__dirname,'../wallet-runtime/kaspa-wallet.cjs'),folder]);
+const p=spawn(process.execPath,[path.resolve(__dirname,'../wallet-runtime/kaspa-wallet.cjs'),folder,String(blocker.address().port)]);
 let waiter;let died=false;
 const lines=readline.createInterface({input:p.stdout});
 lines.on('line',s=>{if(s.startsWith('KASPA_REPLY ')){const w=waiter;waiter=null;if(w)w.resolve(JSON.parse(s.slice(12)))}});
 p.on('exit',()=>{died=true;if(waiter)waiter.reject(Error('Worker exited unexpectedly'))});
 p.stderr.on('data',()=>{});
 async function q(x){if(died)throw Error('Worker stopped');let timer;const r=await new Promise((resolve,reject)=>{waiter={resolve,reject};timer=setTimeout(()=>reject(Error('Test timed out')),15000);p.stdin.write(JSON.stringify(x)+'\n')}).finally(()=>clearTimeout(timer));if(!r.ok)throw Error(r.error);return r.result;}
-(async()=>{
+await (async()=>{
+ assert.deepEqual(await q({op:'ping'}),{ready:true});
  const password='public-test-password';
  const phrase='abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
  const fixedName='easy-'+'a'.repeat(32);
@@ -51,6 +56,15 @@ async function q(x){if(died)throw Error('Worker stopped');let timer;const r=awai
  const backup=await q({op:'export',password});fs.writeFileSync(path.join(folder,'restored.wallet'),Buffer.from(backup.data,'hex'));
  await q({op:'lock'});r=await q({op:'open',filename:'restored',password});assert.equal(r.accounts[0].address,second);
  await q({op:'history'});
+ await assert.rejects(q({op:'connect'}));
+ assert.deepEqual(await q({op:'ping'}),{ready:true});
+ // Reconnect and switch wallets after processing has started: start() must not run twice.
+ await assert.rejects(q({op:'connect'}));
+ assert.deepEqual(await q({op:'ping'}),{ready:true});
+ await q({op:'lock'});
+ await assert.rejects(q({op:'open',filename,password,connect:true}));
+ assert.deepEqual(await q({op:'ping'}),{ready:true});
+ r=await q({op:'status'});assert.equal(r.open,true);assert.equal(r.filename,filename);
  await assert.rejects(q({op:'estimate',address,amount:'1'}),/synced local Kaspa node/);
  await assert.rejects(q({op:'send',token:'invented',password}),/synced local Kaspa node/);
  r=await q({op:'create',password,secret:phrase,title:'Account 1',index:1});assert.equal(r.accounts[0].accountIndex,1);assert.notEqual(r.accounts[0].address,address);await checkKey(r,0,r.accounts[0].address);
@@ -69,5 +83,30 @@ async function q(x){if(died)throw Error('Worker stopped');let timer;const r=awai
  await assert.rejects(q({op:'verify_recovery',account:r.selected,secret:phrase,passphrase:'wrong'}));
  await assert.rejects(q({op:'export_key',account:r.selected,index:0,address:r.accounts[0].address,secret:phrase,passphrase:'wrong'}));
  const list=await q({op:'list'});assert(list.wallets.length>=4);
+ // Independent desktop and Telegram views of the same SDK storage.
+ const otherFilename=r.filename;
+ await q({session:'desktop',op:'open',filename,password});
+ let tg=await q({session:'telegram',op:'status'});assert.equal(tg.open,false);
+ await assert.rejects(q({session:'telegram',op:'open',filename:'missing-wallet',password}));
+ tg=await q({session:'telegram',op:'status'});assert.equal(tg.open,false);
+ assert.equal((await q({session:'desktop',op:'status'})).open,true);
+ await assert.rejects(q({session:'telegram',op:'open',filename,password:'wrong'}));
+ let desk=await q({session:'desktop',op:'status'});assert.equal(desk.open,true);assert.equal(desk.filename,filename);
+ tg=await q({session:'telegram',op:'open',filename,password});assert.equal(tg.open,true);
+ tg=await q({session:'telegram',op:'address'});const sharedAddress=tg.accounts[0].address;
+ desk=await q({session:'desktop',op:'status'});assert.equal(desk.accounts[0].address,sharedAddress);
+ await q({session:'desktop',op:'lock'});
+ tg=await q({session:'telegram',op:'status'});assert.equal(tg.open,true);assert.equal(tg.filename,filename);
+ desk=await q({session:'desktop',op:'open',filename:otherFilename,password});assert.equal(desk.filename,otherFilename);
+ tg=await q({session:'telegram',op:'status'});assert.equal(tg.filename,filename);
+ desk=await q({session:'desktop',op:'status'});assert.equal(desk.filename,otherFilename);
+ await q({session:'telegram',op:'session_drop'});
+ desk=await q({session:'desktop',op:'status'});assert.equal(desk.open,true);
+ tg=await q({session:'telegram',op:'status'});assert.equal(tg.open,false);
+ await q({session:'desktop',op:'session_drop'});
+ console.log('PASS: concurrent logical sessions, wrong-password isolation, shared address persistence, independent lock/drop and selection.');
  console.log('PASS: seed/private-key import, account derivation, encrypted storage, wrong-password rejection, address persistence, backup restoration, history, offline send guards, receiving-key exports and address matching.');
 })().catch(e=>{console.error(e.message);process.exitCode=1}).finally(()=>{p.stdin.end();p.kill();p.on('exit',()=>fs.rmSync(folder,{recursive:true,force:true}))});
+
+} finally {blocker.close()}
+})().catch(e=>{console.error(e.message);process.exitCode=1});

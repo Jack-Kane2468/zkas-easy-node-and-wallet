@@ -21,3 +21,21 @@ The node, wallet daemon, Tor and mining bridge are separate upstream programs. T
 Local APIs are loopback-bound by default. Sharing must be deliberately enabled. Public registration can consume disk/CPU; gateway limits do not replace external capacity management, monitoring and abuse protection. Tor identity reuse and HTTPS certificates are retained with user data on uninstall.
 
 Local-network sharing binds one chosen private IPv4 address and filters clients to its subnet, with Windows Private/Domain firewall rules. It shares unauthenticated, unencrypted node RPC with trusted devices on that subnet. Do not forward LAN ports to the internet; use the separate HTTPS/Tor features for remote access. LAN wallet REST still blocks seed/custodial/admin endpoints.
+
+## Telegram bot
+
+Bot access is opt-in and limited to private chats from configured numeric user IDs. Owner pairing requires a short-lived random code plus approval in the manager. Owner-only mode ignores additional IDs. All allowlisted users otherwise share the selected permissions. Telegram bot chats are cloud chats, not end-to-end encrypted. Viewing permissions can reveal financial history to Telegram and allowed users.
+
+Saved bot settings are encrypted using Windows DPAPI for the current user. This does not protect against malware running as that same user. Tokens, recovery phrases, spending keys and FVKs are never included in bot replies by the supported commands. Raw daemon errors and arbitrary logs are not forwarded. No arbitrary shell execution, remote key export, destructive maintenance or remote configuration endpoints are exposed.
+
+The bot stops with the manager by default. An explicit setting keeps it in the system tray when the desktop window closes; desktop vaults lock while Telegram sessions remain independent. It does not automatically start after a restart. Queued pre-start messages are discarded. Turning off access requires stopping the bot; edit permissions/IDs and restart it. An already-started graceful service stop is allowed to finish. Revoking a Telegram bot token in BotFather also revokes that token at Telegram.
+
+## Telegram spending
+
+The optional Send from Telegram permission grants allowed users access to spend from independently unlocked Telegram vault wallets. It is separate from local-review payment requests and defaults off. Telegram chats carry payment details and are not end-to-end encrypted. Reviews are short-lived and single-use, and submission errors are not retried. Keep the bot allowlist limited to people authorized to spend when this permission is enabled.
+
+Optional Telegram spending limits are enforced per chain across all allowed users/wallets on this installation, including fees. Encrypted reservations are saved before signing/submission and retained for 24 hours even after uncertain failures. Limits do not govern desktop sends, sends while limits are disabled, or other installations. Receive notifications and summaries expose selected financial activity through Telegram and must be enabled explicitly. Notification state is encrypted; already-delivered Telegram messages are not erased by locking a vault.
+
+Remote lock/unlock is separately opt-in and chain-scoped. A Telegram unlock cannot populate the desktop vault session. Vault passwords entered into Telegram traverse Telegram cloud chats; deletion is attempted but is not an erasure guarantee. Use local Bot-tab unlock controls to keep passwords off Telegram.
+
+Desktop and Telegram Kaspa sessions can remain unlocked together. A single serialized SDK worker owns wallet storage; session selection and pending payment tokens are isolated. A failed open cannot inherit another session's open wallet. Locking a session drops its credentials without dropping the other session.

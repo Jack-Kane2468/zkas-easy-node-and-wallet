@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -16,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 	"zkas-node-manager/internal/chains"
@@ -37,11 +39,16 @@ type kaspaWalletReply struct {
 	Result json.RawMessage
 }
 type kaspaWalletProcess struct {
-	mu      sync.Mutex
-	cmd     *exec.Cmd
-	in      io.WriteCloser
-	replies chan kaspaWalletReply
-	done    chan struct{}
+	backend    *kaspaWalletProcess
+	session    string
+	users      atomic.Int32
+	stopped    atomic.Bool
+	diagnostic walletProcessDiagnostic
+	mu         sync.Mutex
+	cmd        *exec.Cmd
+	in         io.WriteCloser
+	replies    chan kaspaWalletReply
+	done       chan struct{}
 }
 
 func startKaspaWalletProcess(root string) (*kaspaWalletProcess, error) {
@@ -74,12 +81,14 @@ func startKaspaWalletProcess(root string) (*kaspaWalletProcess, error) {
 		return nil, e
 	}
 	p := &kaspaWalletProcess{cmd: cmd, in: in, replies: make(chan kaspaWalletReply, 1), done: make(chan struct{})}
+	cmd.Stderr = &p.diagnostic
 	if e = cmd.Start(); e != nil {
 		return nil, e
 	}
 	go func() {
 		defer close(p.replies)
 		defer close(p.done)
+		defer p.stopped.Store(true)
 		scan := bufio.NewScanner(out)
 		scan.Buffer(make([]byte, 4096), 4<<20)
 		for scan.Scan() {
@@ -92,14 +101,39 @@ func startKaspaWalletProcess(root string) (*kaspaWalletProcess, error) {
 				p.replies <- r
 			}
 		}
+		if scan.Err() != nil {
+			p.cmd.Process.Kill()
+		}
 		cmd.Wait()
+		if cmd.ProcessState != nil {
+			p.diagnostic.finish(cmd.ProcessState.ExitCode())
+		}
 	}()
+	var ready struct{ Ready bool }
+	if e = p.callTimeout(map[string]any{"op": "ping"}, &ready, 10*time.Second); e != nil || !ready.Ready {
+		p.stop()
+		if e != nil {
+			return nil, e
+		}
+		return nil, errors.New("Kaspa wallet runtime did not become ready")
+	}
 	return p, nil
 }
 func (p *kaspaWalletProcess) stop() {
+	if p != nil && p.backend != nil {
+		if p.stopped.Swap(true) {
+			return
+		}
+		_ = p.backend.callTimeout(map[string]any{"op": "session_drop", "session": p.session}, nil, 10*time.Second)
+		if p.backend.users.Add(-1) == 0 {
+			p.backend.stop()
+		}
+		return
+	}
 	if p == nil {
 		return
 	}
+	p.stopped.Store(true)
 	p.in.Close()
 	p.cmd.Process.Kill()
 	select {
@@ -107,23 +141,59 @@ func (p *kaspaWalletProcess) stop() {
 	case <-time.After(3 * time.Second):
 	}
 }
-func (p *kaspaWalletProcess) call(q any, out any) error {
-	p.mu.Lock()
+func (p *kaspaWalletProcess) call(q any, out any) error { return p.callTimeout(q, out, 90*time.Second) }
+func (p *kaspaWalletProcess) callTimeout(q any, out any, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	return p.callContext(ctx, q, out)
+}
+func (p *kaspaWalletProcess) callContext(ctx context.Context, q any, out any) error {
+	if p.backend != nil {
+		if !p.alive() {
+			return p.failure()
+		}
+		original, ok := q.(map[string]any)
+		if !ok {
+			return errors.New("Invalid wallet request")
+		}
+		request := make(map[string]any, len(original)+1)
+		for k, v := range original {
+			request[k] = v
+		}
+		request["session"] = p.session
+		defer clear(request)
+		return p.backend.callContext(ctx, request, out)
+	}
+	ticker := time.NewTicker(10 * time.Millisecond)
+	defer ticker.Stop()
+	for !p.mu.TryLock() {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("Wallet is busy: %w", ctx.Err())
+		case <-ticker.C:
+		}
+	}
 	defer p.mu.Unlock()
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	if !p.alive() {
+		return p.failure()
+	}
 	b, e := json.Marshal(q)
 	if e != nil {
 		return e
 	}
 	defer clear(b)
 	if _, e = p.in.Write(append(b, '\n')); e != nil {
-		return errors.New("Wallet process stopped. Lock and reopen your wallet")
+		p.stopped.Store(true)
+		return p.failure()
 	}
-	timer := time.NewTimer(90 * time.Second)
-	defer timer.Stop()
 	select {
 	case r, ok := <-p.replies:
 		if !ok {
-			return errors.New("Wallet process stopped. Lock and reopen your wallet")
+			p.stopped.Store(true)
+			return p.failure()
 		}
 		if !r.OK {
 			return fmt.Errorf("%s", r.Error)
@@ -132,9 +202,10 @@ func (p *kaspaWalletProcess) call(q any, out any) error {
 			return json.Unmarshal(r.Result, out)
 		}
 		return nil
-	case <-timer.C:
+	case <-ctx.Done():
+		p.stopped.Store(true)
 		p.cmd.Process.Kill()
-		return errors.New("Wallet operation timed out. If sending, check history and your balance before trying again; a transaction may have been submitted")
+		return fmt.Errorf("Wallet operation interrupted. If sending, check history and your balance before trying again; a transaction may have been submitted: %w", ctx.Err())
 	}
 }
 
@@ -243,10 +314,16 @@ func (m *manager) kaspaWalletTab() TabPage {
 	}}}}
 }
 func (m *manager) kwEnsure() error {
-	if m.kwProcess != nil {
+
+	if m.kwProcess != nil && m.kwProcess.alive() {
 		return nil
 	}
-	p, e := startKaspaWalletProcess(m.root)
+	if m.kwProcess != nil {
+		m.kwProcess.stop()
+		m.kwProcess = nil
+		m.kwApply(kaspaWalletState{})
+	}
+	p, e := m.newKaspaSession("desktop")
 	if e == nil {
 		m.kwProcess = p
 	}
@@ -470,12 +547,13 @@ func (m *manager) kwOpen() {
 	if entry == nil {
 		return
 	}
-	if m.kwState.Open && m.kwState.Filename == entry.ID {
+	if m.kwState.Open && m.kwState.Filename == entry.ID && m.kwProcess.alive() {
+		m.kwAction(map[string]any{"op": "connect"}, true, nil)
 		return
 	}
 	m.kwApply(kaspaWalletState{})
 	m.kwStatus.SetText("Opening wallet: " + entry.Name + "…")
-	m.kwAction(map[string]any{"op": "open", "filename": entry.ID, "password": entry.Password}, true, nil)
+	m.kwAction(map[string]any{"op": "open", "filename": entry.ID, "password": entry.Password, "connect": true}, true, nil)
 }
 func (m *manager) kwLock() {
 	if m.busy {
@@ -685,6 +763,9 @@ func (m *manager) kwPoll() {
 				return
 			}
 			if e != nil {
+				if !p.alive() {
+					m.kwApply(kaspaWalletState{})
+				}
 				m.kwStatus.SetText(e.Error())
 			} else {
 				m.kwApply(s)

@@ -149,11 +149,16 @@ func stopOne(root, kind string) error {
 	if !serviceActive(root, kind) {
 		return nil
 	}
+	if kind == "node" || kind == "kaspa" || kind == "mining" || kind == "dual" {
+		_ = os.WriteFile(stopIntent(root, kind), []byte(time.Now().Format(time.RFC3339)), 0600)
+	}
 	reply, e := serviceCommand(root, kind, "stop")
 	if e != nil {
+		os.Remove(stopIntent(root, kind))
 		return fmt.Errorf("%s host is busy or unreachable; retry Stop shortly: %w", kind, e)
 	}
 	if reply.Error != "" {
+		os.Remove(stopIntent(root, kind))
 		return errors.New(reply.Error)
 	}
 	for i := 0; i < 90; i++ {
@@ -235,6 +240,7 @@ func startOne(root string, c node.Config, kind string) error {
 		}
 	}
 	os.Remove(serviceErrorFile(root, kind))
+	os.Remove(stopIntent(root, kind))
 	arg := "--host"
 	if kind == "wallet" {
 		arg = "--wallet-host"

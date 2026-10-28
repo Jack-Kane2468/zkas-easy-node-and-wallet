@@ -177,7 +177,7 @@ func (m *manager) refreshLogs() {
 	if m.logs == nil || !win.IsWindowVisible(m.logs.hwnd) || win.IsIconic(m.window.Handle()) {
 		return
 	}
-	names := []string{"console.log", "wallet-console.log", "mining-console.log", "tor-console.log", "kaspa-console.log", "dual-console.log", "kaspa-tor"}
+	names := []string{"console.log", "wallet-console.log", "mining-console.log", "tor-console.log", "kaspa-console.log", "dual-console.log", "kaspa-tor", "bot.log"}
 	i := m.logSelect.CurrentIndex()
 	if i < 0 || i >= len(names) {
 		return

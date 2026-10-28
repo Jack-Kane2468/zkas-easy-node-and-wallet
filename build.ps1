@@ -31,4 +31,10 @@ try {
 if ($LASTEXITCODE -ne 0) { throw 'WASM recovery vectors failed' }
 & ./wallet-runtime/node.exe ./scripts/test-kaspa-wallet.cjs
 if ($LASTEXITCODE -ne 0) { throw "Kaspa wallet integration tests failed" }
+& ./wallet-runtime/node.exe ./scripts/test-kaspa-notifications.cjs
+if ($LASTEXITCODE -ne 0) { throw 'Kaspa notification tests failed' }
+
+& ./wallet-runtime/node.exe ./scripts/test-kaspa-status.cjs
+if ($LASTEXITCODE -ne 0) { throw "Kaspa wallet status tests failed" }
+
 & ./scripts/package-release.ps1
