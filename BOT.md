@@ -94,3 +94,9 @@ Unlocking never unlocks the desktop vault. Locking a Telegram vault clears its c
 The desktop and Telegram can both remain unlocked. Their Kaspa sessions use a single serialized SDK storage owner, with independent credentials, wallet/account selections, lock state and payment review tokens. A request restores the requesting session's selection before using the SDK; locking one session does not lock the other. This avoids concurrent writers to the same wallet files without requiring the manager to be locked. The node is still a separate process.
 
 Kaspa balance display can read the same local-node UTXOs used by the address table if the SDK has not supplied a balance event. It totals all generated receive and change addresses, including multiple pages (up to 10,000 addresses for this fallback), and caches a successful total for up to five seconds. An on-chain total does not by itself authorize spending; the SDK still validates maturity and readiness.
+
+## Notification toggles in Telegram
+
+Open **Notifications** from the main menu, or send `/notifications`. The paired owner can toggle each alert category and the daily summary. These are shared manager settings for all bot recipients, not individual subscriptions. Changes persist immediately, appear in the manager's checkboxes and take effect on the next monitoring cycle (normally within 20 seconds), including when notifications were previously all disabled. An already-sent message cannot be recalled.
+
+Configure the summary delivery time and mining thresholds in the manager. The menu displays the saved delivery time in the manager computer's local timezone. Receive alerts require the corresponding wallet permission; they never unlock wallets. Failed saves leave the prior settings active. Summary collection restarts on a daily-summary toggle, and receipt history is rebaselined when receipt settings change, avoiding a backlog of old payment alerts.

@@ -62,3 +62,30 @@ func TestBridgeUpdateVersionOrder(t *testing.T) {
 		t.Fatal("unrecognized installed version")
 	}
 }
+
+func TestOfficialBridgeAndRebuiltPackage(t *testing.T) {
+	r := node.Release{Tag: DualVersion, Assets: []node.Asset{{Name: "solo-dual-mode-windows-x64.zip", URL: DualURL, Size: 6354355, Digest: "sha256:" + DualSHA}}}
+	checked, e := ValidateBridgeRelease(r, true)
+	if e != nil {
+		t.Fatal(e)
+	}
+	for _, tc := range []struct {
+		binary Binary
+		want   bool
+	}{
+		{Binary{}, true},
+		{Binary{Version: DualVersion}, true},
+		{Binary{Version: DualVersion, ArchiveSHA: strings.Repeat("a", 64)}, true},
+		{Binary{Version: DualVersion, ArchiveSHA: DualSHA}, false},
+		{Binary{Version: "v1.0.13"}, false},
+	} {
+		got, e := BridgeNeedsUpdate(checked, tc.binary)
+		if e != nil || got != tc.want {
+			t.Fatalf("%+v: %v %v", tc, got, e)
+		}
+	}
+	r.Assets[0].URL = "https://zkas.info/downloads/bridge/v1.0.11/solo-dual-mode-windows-x64.zip"
+	if _, e := ValidateBridgeRelease(r, true); e == nil {
+		t.Fatal("accepted mismatched URL version")
+	}
+}

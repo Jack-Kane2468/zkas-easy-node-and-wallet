@@ -727,7 +727,11 @@ func (m *manager) checkUpdate() {
 			})
 			return nil
 		}
-		if !c.Published.IsZero() && !r.Published.After(c.Published) {
+		newer, err := node.ReleaseNewer(r.Tag, c.Version)
+		if err != nil {
+			return err
+		}
+		if !newer {
 			return fmt.Errorf("The latest release is not newer than your installation; refusing an automatic downgrade")
 		}
 		yes := false

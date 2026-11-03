@@ -50,3 +50,11 @@ Each Mining subtab includes **Check for bridge updates…**. The manager shows t
 Downloads must match the publisher’s SHA-256. A failed download leaves the running bridge in place. A successful update briefly restarts the selected bridge only if it was running, retaining saved payout/worker/port/LAN settings. If restart fails, the manager reports the failure; inspect Overview and restart mining once both required nodes are ready. An already stopped bridge remains stopped. Older versions are never selected as an update.
 
 For ZKrise, update ZKas core and the enabled wallet backend through Overview before updating the bridge. The manager’s bundled signer is separate from those components.
+
+## Official download indexes
+
+ZKas components use https://zkas.info/downloads/node/ (node, wallet daemon and original ZKas-only bridge) and https://zkas.info/downloads/bridge/ (standalone merged bridge). Radicle hosts source tags; a bridge attachment on Radicle is not required. GitHub is retained as a fallback if site discovery fails. Kaspa-only components keep their existing Kaspa upstream.
+
+The manager selects the newest listed stable Windows package by version, checks its published SHA-256 and size, and accepts the node archive's root or bin/ executable layout. Linux-only entries do not hide an available Windows release. Missing or malformed checksums are not accepted.
+
+The standalone bridge v1.0.12 was repackaged on the new site. The manager tracks the archive hash as well as the executable hash; an old installation may be offered a one-time same-version reinstall. This is explained in the confirmation dialog. Existing payout addresses, workers, data and wallet settings are retained.

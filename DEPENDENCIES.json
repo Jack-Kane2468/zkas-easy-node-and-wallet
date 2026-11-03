@@ -1,5 +1,5 @@
 {
-  "toolchain": "go1.26.8",
+  "toolchain": "go1.26.10",
   "target": "windows/amd64",
   "modules": [
     {
@@ -24,18 +24,18 @@
     },
     {
       "Path": "golang.org/x/net",
-      "Version": "v0.59.0",
-      "Sum": "h1:5zfYln+w5XCxwrnMMJPufRgNoXEaGxl0wo5GqPXyues="
+      "Version": "v0.62.0",
+      "Sum": "h1:18ELalfM5+XNRwzM2nYqXsZQ9ByS1uhj2O/U7+5jqRY="
     },
     {
       "Path": "golang.org/x/sys",
-      "Version": "v0.48.0",
-      "Sum": "h1:bbX/i/6MgT9BVLM9RT1thmxL04yeTAhbEz4SyadbXoo="
+      "Version": "v0.49.0",
+      "Sum": "h1:XbzkgYJHdqh/8m2Uu0W/dQv8nktxx4BFHp1M0gROTXA="
     },
     {
       "Path": "golang.org/x/text",
-      "Version": "v0.42.0",
-      "Sum": "h1:JbOZXgfeCPU9gacVtYliJqOhD+zhrEqK4LfdpmlUZqI="
+      "Version": "v0.43.0",
+      "Sum": "h1:1QivrlhwAsnMOcqgOdl9my7s9OyZl8O5/UGUTJVXoWc="
     },
     {
       "Path": "google.golang.org/genproto/googleapis/rpc",

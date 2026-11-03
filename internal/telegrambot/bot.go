@@ -154,6 +154,7 @@ type pending struct {
 	Expires time.Time
 }
 type Engine struct {
+	SaveAlerts   func(context.Context, int64, AlertOptions) error
 	WalletAccess func(context.Context, string) (bool, string, error)
 	Prepare      func(context.Context, PaymentInput) (PaymentReview, error)
 	Touch        func(int64)
@@ -200,7 +201,7 @@ func (e *Engine) permitted(cmd string) bool {
 	return false
 }
 func (e *Engine) help() string {
-	lines := []string{"Use the buttons below, or keep using these optional commands.\n/menu — open the main menu"}
+	lines := []string{"Use the buttons below, or keep using these optional commands.\n/menu — open the main menu\n/notifications — notification toggles (owner only)"}
 	for _, x := range []struct{ cmd, help string }{
 		{"status", "/status — node and backend status"}, {"mining", "/mining — workers, shares and hashrate"},
 		{"node", "/node start|stop zkas|kaspa — confirmation required; stopping a node also stops dependent services"},
@@ -262,6 +263,9 @@ func (e *Engine) Process(ctx context.Context, m Message, now time.Time) (Reply, 
 	}
 	if cmd == "start" || cmd == "menu" {
 		return home("Choose an option."), nil
+	}
+	if cmd == "notifications" {
+		return e.processNotifications(ctx, id, f[1:])
 	}
 	if cmd == "help" {
 		return home(e.help()), nil

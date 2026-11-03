@@ -21,14 +21,15 @@ import (
 const KaspaVersion = "v2.1.0"
 const DualVersion = "v1.0.12"
 const KaspaSHA = "fb25743a4b432d376c4ca49d8799769dbc6d5b070f0b502350ce32cfdb38ec0f"
-const DualSHA = "dc95845ae7e8363d3c52e6fc99b8bccdb50fe541b980b7c34192d5ea289e7ecd"
+const DualSHA = "97691d1f093c4fff5fe8ef88934893a062081bd99335ff7c243523ec0a81a00d"
 const KaspaURL = "https://github.com/kaspanet/rusty-kaspa/releases/download/" + KaspaVersion + "/rusty-kaspa-" + KaspaVersion + "-win64.zip"
-const DualURL = "https://github.com/firecash/solo-dual-mode/releases/download/" + DualVersion + "/solo-dual-mode-windows-x64.zip"
+const DualURL = "https://zkas.info/downloads/bridge/" + DualVersion + "/solo-dual-mode-windows-x64.zip"
 
 type Binary struct {
-	Path    string `json:"path"`
-	SHA     string `json:"sha256"`
-	Version string `json:"version"`
+	Path       string `json:"path"`
+	SHA        string `json:"sha256"`
+	Version    string `json:"version"`
+	ArchiveSHA string `json:"archiveSHA256,omitempty"`
 }
 type Config struct {
 	NodeMode  string `json:"nodeMode"`
@@ -203,8 +204,15 @@ func Install(ctx context.Context, root string, dual bool, progress func(string),
 	url, hash, version, folder := KaspaURL, KaspaSHA, KaspaVersion, "kaspa-"+KaspaVersion
 	names := []string{"kaspad.exe", "stratum-bridge.exe", "kaspa-wallet.exe"}
 	if dual {
-		url, hash, version, folder = DualURL, DualSHA, DualVersion, "merged-"+DualVersion
-		names = []string{"stratum-bridge.exe"}
+		r, e := LatestBridge(ctx, true)
+		if e != nil {
+			return nil, e
+		}
+		b, e := InstallBridgeRelease(ctx, root, r, progress)
+		if e != nil {
+			return nil, e
+		}
+		return map[string]Binary{"stratum-bridge.exe": b}, nil
 	}
 	if len(namesOverride) > 0 {
 		names = namesOverride
@@ -222,7 +230,7 @@ func installArchive(ctx context.Context, root, url, hash, version, folder string
 	req.Header.Set("User-Agent", "ZKas-Node-Manager/"+node.ManagerVersion)
 	client := &http.Client{CheckRedirect: func(r *http.Request, via []*http.Request) error {
 		h := r.URL.Hostname()
-		if len(via) > 8 || r.URL.Scheme != "https" || (h != "github.com" && h != "release-assets.githubusercontent.com" && h != "objects.githubusercontent.com") {
+		if len(via) > 8 || r.URL.Scheme != "https" || (h != "zkas.info" && h != "github.com" && h != "release-assets.githubusercontent.com" && h != "objects.githubusercontent.com") {
 			return errors.New("Unexpected download redirect")
 		}
 		return nil
@@ -311,7 +319,7 @@ func Extract(archive, dest, version string, names []string) (map[string]Binary, 
 				return nil, e
 			}
 		}
-		out[name] = Binary{path, digest, version}
+		out[name] = Binary{Path: path, SHA: digest, Version: version}
 	}
 	return out, nil
 }

@@ -18,11 +18,12 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"zkas-node-manager/internal/releasesite"
 )
 
 const Repository = "https://github.com/firecash/zkas-rusty"
 const LatestAPI = "https://api.github.com/repos/firecash/zkas-rusty/releases/latest"
-const ManagerVersion = "0.9.28-preview"
+const ManagerVersion = "0.9.31-preview"
 
 type Config struct {
 	PublicP2P bool `json:"publicP2P,omitempty"`
@@ -249,7 +250,7 @@ func (r Release) WindowsAsset() (Asset, error) {
 	if !digestPattern.MatchString(a.Digest) {
 		return Asset{}, errors.New("This release has no SHA-256 digest; installation was refused")
 	}
-	if a.URL != Repository+"/releases/download/"+r.Tag+"/"+a.Name || strings.ContainsAny(a.Name, "/\\") {
+	if (a.URL != Repository+"/releases/download/"+r.Tag+"/"+a.Name && (releasesite.PackageURL("node", r.Tag, a.Name) == "" || a.URL != releasesite.PackageURL("node", r.Tag, a.Name))) || strings.ContainsAny(a.Name, "/\\") {
 		return Asset{}, errors.New("Unexpected release download location")
 	}
 	if a.Size <= 0 || a.Size > 512<<20 {
@@ -257,7 +258,7 @@ func (r Release) WindowsAsset() (Asset, error) {
 	}
 	return a, nil
 }
-func Latest(ctx context.Context) (Release, error) {
+func latestGitHub(ctx context.Context) (Release, error) {
 	var r Release
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
@@ -396,12 +397,12 @@ func ExtractExecutable(zipPath, dest, name string) error {
 	defer z.Close()
 	var candidates []*zip.File
 	for _, f := range z.File {
-		if f.Name == name {
+		if f.Name == name || f.Name == "bin/"+name {
 			candidates = append(candidates, f)
 		}
 	}
 	if len(candidates) != 1 {
-		return fmt.Errorf("Release must contain exactly one root %s", name)
+		return fmt.Errorf("Release must contain exactly one %s at the archive root or in bin/", name)
 	}
 	f := candidates[0]
 	if f.Mode()&os.ModeSymlink != 0 || f.UncompressedSize64 < 1024 || f.UncompressedSize64 > 256<<20 {

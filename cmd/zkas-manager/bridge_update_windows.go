@@ -38,7 +38,7 @@ func (m *manager) checkBridgeUpdate(mode string) {
 		if e != nil {
 			return e
 		}
-		newer, e := chains.BridgeNewer(r.Release.Tag, old.Version)
+		newer, e := chains.BridgeNeedsUpdate(r, old)
 		if e != nil {
 			return e
 		}
@@ -51,10 +51,14 @@ func (m *manager) checkBridgeUpdate(mode string) {
 			})
 			return nil
 		}
+		packageNote := ""
+		if dual && old.Version == r.Release.Tag {
+			packageNote = "\nThe version tag is unchanged, but the published archive differs or this installation predates archive tracking. Reinstall to verify the current package.\n"
+		}
 		running := serviceActive(m.root, "dual") && ((dual && c.Mode != "kaspa") || (!dual && c.Mode == "kaspa"))
 		yes := false
 		m.onUI(func() {
-			yes = walk.MsgBox(m.window, "Update mining bridge", fmt.Sprintf("Installed: %s\nAvailable: %s\n\nDownload from %s and verify its SHA-256 before stopping mining? If this bridge is running, it will be stopped and restarted with your saved addresses, worker and LAN settings. Nodes and wallets stay running.\n\nIf upgrading for ZKrise, update the ZKas node and wallet backend from Overview too.", old.Version, r.Release.Tag, chains.BridgeRepository(dual)), walk.MsgBoxYesNo|walk.MsgBoxIconQuestion) == walk.DlgCmdYes
+			yes = walk.MsgBox(m.window, "Update mining bridge", fmt.Sprintf("Installed: %s\nAvailable: %s\n%s\nDownload from %s and verify its SHA-256 before stopping mining? If this bridge is running, it will be stopped and restarted with your saved addresses, worker and LAN settings. Nodes and wallets stay running.\n\nIf upgrading for ZKrise, update the ZKas node and wallet backend from Overview too.", old.Version, r.Release.Tag, packageNote, r.Asset.URL), walk.MsgBoxYesNo|walk.MsgBoxIconQuestion) == walk.DlgCmdYes
 		})
 		if !yes {
 			return nil

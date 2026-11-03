@@ -48,7 +48,7 @@ func TestMenusOnlyShowAllowedSections(t *testing.T) {
 			commands = append(commands, b.Command)
 		}
 	}
-	if strings.Join(commands, ",") != "fvks,help" {
+	if strings.Join(commands, ",") != "fvks,notifications,help" {
 		t.Fatal(commands)
 	}
 	reply, _ = e.Process(context.Background(), msg(42, "nodes", now), now)

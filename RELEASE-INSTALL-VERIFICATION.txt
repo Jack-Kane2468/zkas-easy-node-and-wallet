@@ -1,0 +1,10 @@
+Official downloads and installation verification, 2026-10-29
+
+Live discovery: zkas-v1.0.13 v1.0.12
+Verified and extracted kaspad.exe 65543168
+Verified and extracted zkas-walletd.exe 30633984
+Verified and extracted stratum-bridge.exe 72099328
+Verified and installed standalone bridge; archive identity persisted
+
+Node archive SHA-256: bb4dea9613d90e0ed2d44d2c28b852c6373c2d6ac80ef51d47b6c1ac17f63948
+Bridge archive SHA-256: 97691d1f093c4fff5fe8ef88934893a062081bd99335ff7c243523ec0a81a00d

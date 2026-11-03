@@ -78,10 +78,6 @@ func (m *manager) botAlerts(ctx context.Context, api *telegrambot.API, c telegra
 		return
 	}
 	o := c.Alerts
-	if !o.Blocks && !o.Stops && !o.Sync && !o.MiningDown && !o.Daily && !o.ReceiveZKas && !o.ReceiveKaspa {
-		m.botMonitorStatus(ctx, "Optional notifications: off.")
-		return
-	}
 	state, err := telegrambot.LoadMonitor(m.root)
 	if err != nil {
 		m.botMonitorStatus(ctx, "Notifications stopped: saved monitoring state could not be read. Bot commands remain available.")
@@ -105,6 +101,36 @@ func (m *manager) botAlerts(ctx context.Context, api *telegrambot.API, c telegra
 	defer tick.Stop()
 	m.botMonitorStatus(ctx, "Notifications active. Receive history is baselined before new-payment alerts; daily summaries use this computer's local time.")
 	for ctx.Err() == nil {
+
+		previous := o
+		if err := m.botUIRun(ctx, func() { c = m.botConfig }); err != nil {
+			return
+		}
+		o = c.Alerts
+		if previous != o {
+			trackers = map[string]*telegrambot.NodeTracker{"node": {}, "kaspa": {}}
+			miningTracker = telegrambot.MiningTracker{}
+			blocks = telegrambot.BlockTracker{}
+			if previous.Daily != o.Daily {
+				state.Summary = telegrambot.SummaryStats{}
+				state.LastSummaryDay = ""
+				lastTick = time.Time{}
+			}
+			if previous.ReceiveZKas != o.ReceiveZKas || previous.ReceiveKaspa != o.ReceiveKaspa {
+				state.Receives = nil
+				lastReceive = time.Time{}
+			}
+		}
+		if !o.Blocks && !o.Stops && !o.Sync && !o.MiningDown && !o.Daily && !o.ReceiveZKas && !o.ReceiveKaspa {
+			m.botMonitorStatus(ctx, "Optional notifications: off. Enable them from Telegram → Notifications or the manager.")
+			select {
+			case <-ctx.Done():
+				return
+			case <-tick.C:
+				continue
+			}
+		}
+		m.botMonitorStatus(ctx, "Notifications active. Daily summaries use this computer's local time.")
 		now := time.Now()
 		events := []string{}
 		durable := []string{}
@@ -232,7 +258,9 @@ func (m *manager) botAlerts(ctx context.Context, api *telegrambot.API, c telegra
 		}
 		events = append(events, durable...)
 		recipients := []int64{}
+		settingsChanged := false
 		m.botUIRun(ctx, func() {
+			settingsChanged = m.botConfig.Alerts != o
 			seen := map[int64]bool{}
 			for _, id := range append([]int64{m.botConfig.OwnerID}, m.botConfig.Contacts...) {
 				if !seen[id] && m.botConfig.Allows(id) {
@@ -241,6 +269,9 @@ func (m *manager) botAlerts(ctx context.Context, api *telegrambot.API, c telegra
 				}
 			}
 		})
+		if settingsChanged {
+			events = nil
+		}
 		for _, event := range events {
 			for _, id := range recipients {
 				q, cancel := context.WithTimeout(ctx, 10*time.Second)

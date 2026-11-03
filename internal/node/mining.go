@@ -92,7 +92,7 @@ func CheckMiningPort() error {
 	}
 	return l.Close()
 }
-func ReleaseAt(ctx context.Context, tag string) (Release, error) {
+func releaseAtGitHub(ctx context.Context, tag string) (Release, error) {
 	var r Release
 	if !tagPattern.MatchString(tag) {
 		return r, errors.New("Invalid installed release tag")

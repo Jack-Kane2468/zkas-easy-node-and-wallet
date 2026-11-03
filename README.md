@@ -59,7 +59,11 @@ Local-only use is the default. Copy the API addresses shown in Overview instead 
 
 Manager code is MIT licensed. The viewing helper is ISC licensed. Other bundled code keeps its own licenses; see [third-party notices](THIRD-PARTY-NOTICES.md) and [runtime provenance](wallet-runtime/PROVENANCE.md).
 
-Node/bridge upstream: https://github.com/firecash/zkas-rusty
+Node binaries: https://zkas.info/downloads/node/
+
+Merged bridge binaries: https://zkas.info/downloads/bridge/
+
+Node source/releases: https://radicle.network/nodes/207-241-172-71.sslip.io/zkas-rusty/releases
 
 Signer upstream: https://github.com/firecash/zkas-wallet
 

@@ -40,7 +40,7 @@ func (e *Engine) mainMenu() [][]Choice {
 			rows = append(rows, []Choice{{x.label, x.command}})
 		}
 	}
-	return append(rows, []Choice{{"Help", "help"}})
+	return append(rows, []Choice{{"Notifications", "notifications"}}, []Choice{{"Help", "help"}})
 }
 func (e *Engine) nodeMenu() [][]Choice {
 	return [][]Choice{

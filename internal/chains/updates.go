@@ -11,6 +11,7 @@ import (
 	"time"
 	"zkas-node-manager/internal/managerupdate"
 	"zkas-node-manager/internal/node"
+	"zkas-node-manager/internal/releasesite"
 )
 
 type BridgeRelease struct {
@@ -46,12 +47,16 @@ func ValidateBridgeRelease(r node.Release, dual bool) (BridgeRelease, error) {
 		}
 	}
 	a := out.Asset
-	if count != 1 || a.Size <= 0 || a.Size > 100<<20 || !bridgeDigest.MatchString(a.Digest) || a.URL != "https://github.com/"+BridgeRepository(dual)+"/releases/download/"+r.Tag+"/"+name {
+	locationOK := a.URL == "https://github.com/"+BridgeRepository(dual)+"/releases/download/"+r.Tag+"/"+name
+	if dual && a.URL != "" && a.URL == releasesite.PackageURL("bridge", r.Tag, name) {
+		locationOK = true
+	}
+	if count != 1 || a.Size <= 0 || a.Size > 100<<20 || !bridgeDigest.MatchString(a.Digest) || !locationOK {
 		return out, fmt.Errorf("Release is missing one verified Windows x64 package; no changes made")
 	}
 	return out, nil
 }
-func LatestBridge(ctx context.Context, dual bool) (BridgeRelease, error) {
+func latestBridgeGitHub(ctx context.Context, dual bool) (BridgeRelease, error) {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	req, e := http.NewRequestWithContext(ctx, "GET", "https://api.github.com/repos/"+BridgeRepository(dual)+"/releases/latest", nil)
@@ -106,7 +111,9 @@ func InstallBridgeRelease(ctx context.Context, root string, r BridgeRelease, pro
 	if e != nil {
 		return Binary{}, e
 	}
-	return binaries["stratum-bridge.exe"], nil
+	b := binaries["stratum-bridge.exe"]
+	b.ArchiveSHA = hash
+	return b, nil
 }
 
 // Kaspa node and bridge share an upstream archive, but are installed and updated independently.
@@ -129,4 +136,32 @@ func InstallKaspaNodeRelease(ctx context.Context, root string, r BridgeRelease, 
 		return Binary{}, e
 	}
 	return b["kaspad.exe"], nil
+}
+
+func LatestBridge(ctx context.Context, dual bool) (BridgeRelease, error) {
+	if !dual {
+		return latestBridgeGitHub(ctx, false)
+	}
+	p, e := releasesite.Lookup(ctx, "bridge", "")
+	if e == nil {
+		return ValidateBridgeRelease(node.Release{Tag: p.Version, Assets: []node.Asset{{Name: p.Name, URL: p.URL, Digest: "sha256:" + p.SHA, Size: p.Size}}}, true)
+	}
+	r, fallback := latestBridgeGitHub(ctx, true)
+	if fallback != nil {
+		return BridgeRelease{}, fmt.Errorf("Official downloads: %v; GitHub fallback: %w", e, fallback)
+	}
+	return r, nil
+}
+
+// Rebuilt packages can retain a version tag. Record archive identity separately
+// from the extracted executable hash, and offer verification for legacy installs.
+func BridgeNeedsUpdate(r BridgeRelease, installed Binary) (bool, error) {
+	newer, e := BridgeNewer(r.Release.Tag, installed.Version)
+	if e != nil || newer {
+		return newer, e
+	}
+	if r.Dual && r.Release.Tag == installed.Version {
+		return !strings.EqualFold(installed.ArchiveSHA, strings.TrimPrefix(r.Asset.Digest, "sha256:")), nil
+	}
+	return false, nil
 }

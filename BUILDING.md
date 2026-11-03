@@ -1,6 +1,6 @@
 # Build on Windows
 
-Use 64-bit Windows 10/11, Git, PowerShell and Go **1.26.8** (the pinned release toolchain). Clone this repository and open PowerShell in its root:
+Use 64-bit Windows 10/11, Git, PowerShell and Go **1.26.10** (the pinned release toolchain). Clone this repository and open PowerShell in its root:
 
 ```powershell
 ./build.ps1

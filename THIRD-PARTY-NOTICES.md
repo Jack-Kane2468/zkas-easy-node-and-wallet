@@ -2,7 +2,7 @@
 
 Manager code is MIT licensed. Bundled components retain their licenses below. Node/bridge programs are downloaded separately. See wallet-runtime/PROVENANCE.md.
 
-## Go 1.26.8 runtime
+## Go 1.26.10 runtime
 
 ```text
 Copyright 2009 The Go Authors.
@@ -156,7 +156,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ```
 
-## golang.org/x/net v0.59.0
+## golang.org/x/net v0.62.0
 
 ### LICENSE
 
@@ -219,7 +219,7 @@ shall terminate as of the date such litigation is filed.
 
 ```
 
-## golang.org/x/sys v0.48.0
+## golang.org/x/sys v0.49.0
 
 ### LICENSE
 
@@ -282,7 +282,7 @@ shall terminate as of the date such litigation is filed.
 
 ```
 
-## golang.org/x/text v0.42.0
+## golang.org/x/text v0.43.0
 
 ### LICENSE
 
@@ -889,6 +889,6 @@ The manifest build tool github.com/akavel/rsrc v0.10.2 is MIT licensed; it is no
 ## Optional Kaspa / merged mining downloads
 
 - kaspanet/rusty-kaspa v2.1.0: official kaspad.exe and stratum-bridge.exe (ISC). https://github.com/kaspanet/rusty-kaspa/tree/v2.1.0
-- firecash/solo-dual-mode v1.0.12: merged bridge; consult upstream license notices. https://github.com/firecash/solo-dual-mode/tree/v1.0.12
+- firecash/solo-dual-mode v1.0.12: merged bridge; consult upstream license notices. https://zkas.info/code/bridge (binary packages: https://zkas.info/downloads/bridge/)
 
 Immutable archive hashes are pinned in internal/chains/chains.go. Downloaded scripts do not execute. Checksums provide integrity relative to this manager build, not code signing.

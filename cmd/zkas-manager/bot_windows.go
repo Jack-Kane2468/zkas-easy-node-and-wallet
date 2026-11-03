@@ -342,6 +342,7 @@ func (m *manager) botStartClicked() {
 				}
 				return nil
 			}
+			engine.SaveAlerts = m.botSaveAlerts
 			engine.WalletAccess = m.botWalletAccess
 			engine.Prepare = m.botPreparePayment
 			engine.Touch = func(id int64) { m.botTouch(ctx, id) }

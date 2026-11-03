@@ -1,3 +1,35 @@
+# ZKas Node Manager 0.9.31-preview
+
+- Telegram main menu → Notifications (or /notifications) offers independent on/off controls for block, unexpected node-stop, sync/RPC, mining-down, ZKas receipt, Kaspa receipt and daily-summary notifications.
+- The paired owner can change these shared recipient settings. Existing private-chat authorization and button sender binding apply. Receive notifications still require the matching wallet-view permission.
+- Save changes before applying them, mirror the manager's checkboxes and pick up settings during the next monitoring cycle (normally within 20 seconds). No bot restart is required, including when all notifications started disabled.
+- Buttons set an explicit state, so an old On button cannot accidentally turn a setting off. Daily-summary schedule and mining thresholds remain configured in the manager.
+- Rebaseline trackers when settings change; suppress results from a poll whose settings changed before delivery. Daily summary coverage restarts when daily summaries are toggled.
+
+The manager's mining tabs, bridge selection and update behavior are unchanged from v0.9.30.
+
+# ZKas Node Manager 0.9.30-preview
+
+- Upgrade golang.org/x/net to v0.62.0 for the HTML parser security fix, with required x/sys v0.49.0 and x/text v0.43.0 updates.
+
+- Discover ZKas node/wallet-backend releases at https://zkas.info/downloads/node/ and merged-mining bridge releases at https://zkas.info/downloads/bridge/. Use the publisher's Windows links and SHA-256 checksums. GitHub remains a fallback when official-site discovery fails; Radicle source tags do not need release attachments.
+- Support the new node ZIP's bin/ layout as well as legacy root executables. Reject duplicate candidates and verify the archive before extraction.
+- Compare node version numbers instead of publication dates, which the new index does not supply. Older versions are not offered as updates.
+- Discover the current merged bridge for both initial installation and updates. Track archive checksums separately from executable checksums so a rebuilt release with the same version tag can be verified and reinstalled.
+- Show the actual package URL and explain same-version bridge reinstalls. Kaspa upstream and manager self-update sources are unchanged.
+
+Verified against the published Windows node zkas-v1.0.13 and merged bridge v1.0.12. See VALIDATION.md for test coverage and native Windows limitations.
+
+# ZKas Node Manager 0.9.29-preview
+
+Fixes the GitHub Actions vulnerability-check failure reported for v0.9.28.
+
+- Upgrade Go from 1.26.8 to 1.26.10 and golang.org/x/net from v0.59.0 to v0.60.0, including module checksums and dependency inventory.
+- Read the GitHub Actions Go version from go.mod so CI and the release toolchain stay aligned.
+- Keep the vulnerability scan enabled. No wallet or Telegram behavior changes in this release.
+
+See VALIDATION.md for checks performed and remaining Windows validation.
+
 # ZKas Node Manager 0.9.28-preview
 
 - Opening a locked Telegram wallet now prompts for the vault password, then resumes the selected wallet screen. Existing remote-unlock and per-chain permission settings still apply.
