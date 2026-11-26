@@ -12,6 +12,7 @@ import (
 )
 
 type kaspaSettingsUI struct {
+	kBrowse                    *walk.PushButton
 	kMode                      *walk.ComboBox
 	kData                      *walk.LineEdit
 	kGRPC, kJSON, kBorsh, kP2P *walk.NumberEdit
@@ -34,39 +35,46 @@ func (m *manager) kaspaSettingsTab() TabPage {
 		idx = 2
 	}
 	return TabPage{Title: "Kaspa", Layout: VBox{MarginsZero: true}, Children: []Widget{ScrollView{Layout: VBox{Spacing: 8}, Children: []Widget{
-		Label{Text: "Kaspa setup and settings", Font: Font{PointSize: 12, Bold: true}}, Label{Text: "Stop Kaspa before changing node settings. Existing data and wallets are retained."},
-		Label{Text: "What do you want to use this node for?"}, ComboBox{AssignTo: &m.kMode, Model: []string{"Wallet / application backend (recommended)", "Basic pruned node / mining", "Archive + wallet index (empty data folder required)"}, CurrentIndex: idx},
-		TextLabel{Text: "Wallet: pruned blockchain with an address/UTXO index for wallets and bots. Basic: validates and mines without the wallet index. Archive: keeps block data instead of pruning it, with much higher disk use. Kaspa has no shielded-history mode or separate ZKas-style wallet REST daemon.", MinSize: Size{Width: 240}},
-		Label{Text: "Blockchain data folder"}, Composite{Layout: HBox{}, Children: []Widget{LineEdit{AssignTo: &m.kData, Text: chains.DataDir(m.root)}, PushButton{Text: "Browse…", OnClicked: func() {
-			d := walk.FileDialog{Title: "Choose Kaspa blockchain folder", FilePath: m.kData.Text()}
-			if ok, _ := d.ShowBrowseFolder(m.window); ok {
-				m.kData.SetText(d.FilePath)
-			}
-		}}}},
-		Composite{Layout: HBox{}, Children: []Widget{Label{Text: "gRPC port"}, NumberEdit{AssignTo: &m.kGRPC, MinValue: 1024, MaxValue: 65535, Decimals: 0, Value: float64(c.GRPC)}}},
-		Composite{Layout: HBox{}, Children: []Widget{Label{Text: "JSON wRPC port"}, NumberEdit{AssignTo: &m.kJSON, MinValue: 1024, MaxValue: 65535, Decimals: 0, Value: float64(c.JSON)}}},
-		Composite{Layout: HBox{}, Children: []Widget{Label{Text: "Borsh wRPC port"}, NumberEdit{AssignTo: &m.kBorsh, MinValue: 1024, MaxValue: 65535, Decimals: 0, Value: float64(c.Borsh)}}},
-		Composite{Layout: HBox{}, Children: []Widget{Label{Text: "Peer port"}, NumberEdit{AssignTo: &m.kP2P, MinValue: 1024, MaxValue: 65535, Decimals: 0, Value: float64(c.P2P)}}},
-		Label{Text: "Cache memory scale (0.3 recommended on an 8 GB PC; 1.0 = upstream default)"}, NumberEdit{AssignTo: &m.kaspaRAM, MinValue: 0.1, MaxValue: 2, Decimals: 1, Value: c.RAMScale},
-		Label{Text: "This adjusts caches; it is not a hard memory limit."}, CheckBox{AssignTo: &m.kAuto, Text: "Start Kaspa when I sign in", Checked: c.AutoStart},
-		PushButton{AssignTo: &m.kaspaSave, Text: "Save Kaspa settings", OnClicked: m.saveKaspaSettings},
-		GroupBox{Title: "Components", Layout: VBox{}, Children: []Widget{
+		Label{Text: "Install and configure", Font: Font{PointSize: 12, Bold: true}}, Label{Text: "Stop Kaspa before changing node settings. Existing data and wallets are retained."},
+		GroupBox{Title: "Node settings", Layout: VBox{Spacing: 6}, Children: []Widget{
+			Label{Text: "Blockchain data folder"}, Composite{Layout: HBox{}, Children: []Widget{LineEdit{AssignTo: &m.kData, Text: chains.DataDir(m.root)}, PushButton{AssignTo: &m.kBrowse, Text: "Browse…", OnClicked: func() {
+				d := walk.FileDialog{Title: "Choose Kaspa blockchain folder", FilePath: m.kData.Text()}
+				if ok, _ := d.ShowBrowseFolder(m.window); ok {
+					m.kData.SetText(d.FilePath)
+				}
+			}}}},
+			Label{Text: "Storage mode"}, ComboBox{AssignTo: &m.kMode, Model: []string{"Wallet / application backend (recommended)", "Basic pruned node / mining", "Archive + wallet index (empty data folder required)"}, CurrentIndex: idx},
+			TextLabel{Text: "Wallet: pruned blockchain with an address/UTXO index for wallets and bots. Basic: validates and mines without the wallet index. Archive: keeps block data instead of pruning it, with much higher disk use. Kaspa has no shielded-history mode or separate ZKas-style wallet REST daemon.", MinSize: Size{Width: 240}},
+			Composite{Layout: HBox{}, Children: []Widget{Label{Text: "gRPC port"}, NumberEdit{AssignTo: &m.kGRPC, MinValue: 1024, MaxValue: 65535, Decimals: 0, Value: float64(c.GRPC)}}},
+			Composite{Layout: HBox{}, Children: []Widget{Label{Text: "JSON wRPC port"}, NumberEdit{AssignTo: &m.kJSON, MinValue: 1024, MaxValue: 65535, Decimals: 0, Value: float64(c.JSON)}}},
+			Composite{Layout: HBox{}, Children: []Widget{Label{Text: "Borsh wRPC port"}, NumberEdit{AssignTo: &m.kBorsh, MinValue: 1024, MaxValue: 65535, Decimals: 0, Value: float64(c.Borsh)}}},
+			Composite{Layout: HBox{}, Children: []Widget{Label{Text: "Peer port"}, NumberEdit{AssignTo: &m.kP2P, MinValue: 1024, MaxValue: 65535, Decimals: 0, Value: float64(c.P2P)}}},
+			Label{Text: "Cache memory scale (0.3 recommended on an 8 GB PC; 1.0 = upstream default)"}, NumberEdit{AssignTo: &m.kaspaRAM, MinValue: 0.1, MaxValue: 2, Decimals: 1, Value: c.RAMScale},
+			Label{Text: "This adjusts caches; it is not a hard memory limit."}, CheckBox{AssignTo: &m.kAuto, Text: "Start Kaspa when I sign in", Checked: c.AutoStart},
+			PushButton{AssignTo: &m.kaspaSave, Text: "Save settings", OnClicked: m.saveKaspaSettings},
+		}},
+		Label{Text: "Remote access is configured separately in Sharing."},
+		GroupBox{Title: "Components", Layout: VBox{Spacing: 6}, Children: []Widget{
 			Label{Text: "Supported node: " + chains.KaspaVersion},
-			PushButton{AssignTo: &m.kaspaRepair, Text: "Install / repair Kaspa components", OnClicked: func() {
-				m.chainAction("Installing Kaspa components", "Kaspa components installed. Start Kaspa in Overview.", func() error { return installKaspa(m.root, m.setProgress) })
-			}},
+			PushButton{AssignTo: &m.kaspaRepair, Text: "Install / repair and start…", OnClicked: func() { m.applyKaspaSettings(true) }},
 			PushButton{Text: "View Kaspa release updates", OnClicked: func() { openExternal("https://github.com/kaspanet/rusty-kaspa/releases") }},
 			Label{Text: "Install / repair uses the supported version above. Manager updates bring newer supported versions."},
-			PushButton{AssignTo: &m.kaspaRemove, Text: "Uninstall Kaspa components…", OnClicked: func() {
-				if walk.MsgBox(m.window, "Uninstall Kaspa", "Stop Kaspa, its sharing and dependent mining, and remove Kaspa/merged programs? Both blockchains and all wallet files are retained.", walk.MsgBoxYesNo|walk.MsgBoxIconQuestion) == walk.DlgCmdYes {
-					m.chainAction("Uninstalling Kaspa", "Kaspa programs removed. Blockchain and wallet data retained.", func() error { return uninstallChains(m.root, false) })
-				}
+			Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
+				PushButton{Text: "Open Kaspa data folder", OnClicked: func() { m.open(chains.DataDir(m.root)) }},
+				PushButton{AssignTo: &m.kaspaRemove, Text: "Uninstall Kaspa components…", OnClicked: func() {
+					if walk.MsgBox(m.window, "Uninstall Kaspa", "Stop Kaspa, its sharing and dependent mining, and remove Kaspa/merged programs? Both blockchains and all wallet files are retained.", walk.MsgBoxYesNo|walk.MsgBoxIconQuestion) == walk.DlgCmdYes {
+						m.chainAction("Uninstalling Kaspa", "Kaspa programs removed. Blockchain and wallet data retained.", func() error { return uninstallChains(m.root, false) })
+					}
+				}},
 			}},
-			PushButton{Text: "Open Kaspa data folder", OnClicked: func() { m.open(chains.DataDir(m.root)) }},
 		}},
 	}}}}
 }
-func (m *manager) saveKaspaSettings() {
+func (m *manager) saveKaspaSettings() { m.applyKaspaSettings(false) }
+func (m *manager) applyKaspaSettings(install bool) {
+	if m.busy {
+		return
+	}
 	c, e := chains.Read(m.root)
 	if e != nil {
 		m.walletError(e)
@@ -81,7 +89,11 @@ func (m *manager) saveKaspaSettings() {
 	c.P2P = int(m.kP2P.Value())
 	c.RAMScale = m.kaspaRAM.Value()
 	c.AutoStart = m.kAuto.Checked()
-	m.chainAction("Saving Kaspa settings", "Kaspa settings saved. Start Kaspa in Overview.", func() error {
+	operation, completion := "Saving Kaspa settings", "Kaspa settings saved. Start Kaspa in Overview."
+	if install {
+		operation, completion = "Installing Kaspa components", "Kaspa installed and started. Sync continues in Overview."
+	}
+	m.chainAction(operation, completion, func() error {
 		if serviceActive(m.root, "kaspa") || serviceActive(m.root, "dual") || serviceActive(kaspaAccessRoot(m.root), "sharing") {
 			return fmt.Errorf("Stop Kaspa, Kaspa sharing and dependent mining before changing settings")
 		}
@@ -105,8 +117,18 @@ func (m *manager) saveKaspaSettings() {
 				return fmt.Errorf("Kaspa port %d conflicts with ZKas; choose a different port", p)
 			}
 		}
-		if c.AutoStart && !componentPresent(c.Kaspa) {
+		if c.AutoStart && !componentPresent(c.Kaspa) && !install {
 			return fmt.Errorf("Install Kaspa before enabling automatic startup")
+		}
+		if install {
+			if e := installKaspa(m.root, m.setProgress); e != nil {
+				return e
+			}
+			installed, e := chains.Read(m.root)
+			if e != nil {
+				return e
+			}
+			c.Kaspa, c.KaspaBridge, c.Wallet, c.Host = installed.Kaspa, installed.KaspaBridge, installed.Wallet, installed.Host
 		}
 		if e := setKaspaAutoStart(m.root, c.AutoStart); e != nil {
 			return e
@@ -122,6 +144,9 @@ func (m *manager) saveKaspaSettings() {
 			}
 			m.kwApply(kaspaWalletState{})
 		})
+		if install {
+			return startKaspa(m.root, m.cfg)
+		}
 		return nil
 	})
 }

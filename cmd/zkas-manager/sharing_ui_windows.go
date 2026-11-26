@@ -304,6 +304,8 @@ func (m *manager) refreshSharing() {
 	for _, w := range []walk.Widget{m.shareHTTPS, m.shareHost, m.sharePort, m.sharePublic, m.shareTorMode, m.shareTorExe, m.shareCert, m.shareKey} {
 		w.SetEnabled(!m.busy && !active)
 	}
+	m.shareStart.SetVisible(!active)
+	m.shareStop.SetVisible(active)
 	m.shareStart.SetEnabled(!m.busy && !active && serviceActive(m.root, "node") && (!m.cfg.EnableWallet || serviceActive(m.root, "wallet")))
 	m.shareStop.SetEnabled(!m.busy && active)
 	m.peerApply.SetEnabled(!m.busy && !hostActive(m.root))

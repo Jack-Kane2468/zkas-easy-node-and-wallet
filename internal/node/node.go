@@ -23,10 +23,11 @@ import (
 
 const Repository = "https://github.com/firecash/zkas-rusty"
 const LatestAPI = "https://api.github.com/repos/firecash/zkas-rusty/releases/latest"
-const ManagerVersion = "0.9.31-preview"
+const ManagerVersion = "0.9.33-preview"
 
 type Config struct {
-	PublicP2P bool `json:"publicP2P,omitempty"`
+	WalletDaemon WalletOptions `json:"walletDaemon,omitempty"`
+	PublicP2P    bool          `json:"publicP2P,omitempty"`
 
 	EnableWallet     bool      `json:"enableWalletBackend"`
 	WalletPort       int       `json:"walletPort"`
@@ -49,6 +50,9 @@ func Defaults(root string) Config {
 	return Config{DataDir: filepath.Join(root, "data"), GRPC: 16810, WebSocket: 18810, EnableWebSocket: true, Mode: "wallet", EnableWallet: true, WalletPort: 8501}
 }
 func (c Config) Validate() error {
+	if err := c.WalletDaemon.Validate(); err != nil {
+		return err
+	}
 	if !filepath.IsAbs(c.DataDir) || strings.ContainsAny(c.DataDir, "\r\n\x00") {
 		return errors.New("Choose an absolute local data folder")
 	}
@@ -79,6 +83,7 @@ func (c Config) WalletArgs(root string) []string {
 	if c.ResidentWallets > 0 {
 		a = append(a, "--max-resident-wallets="+strconv.Itoa(c.ResidentWallets))
 	}
+	a = append(a, c.WalletDaemon.Args()...)
 	return a
 }
 func (c Config) WalletURL() string { return "http://127.0.0.1:" + strconv.Itoa(c.WalletPort) }

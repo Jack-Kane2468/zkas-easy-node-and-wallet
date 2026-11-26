@@ -165,6 +165,7 @@ func main() {
 }
 
 type manager struct {
+	walletOptionsUI
 	botUI
 	rescanButton      *walk.PushButton
 	stuckRescanButton *walk.PushButton
@@ -182,6 +183,8 @@ type manager struct {
 	logPause        *walk.CheckBox
 	mainTabs        *walk.TabWidget
 	settingsPage    *walk.TabPage
+	settingsTabs    *walk.TabWidget
+	zkasSave        *walk.PushButton
 	managerUpdate   *walk.PushButton
 	managerPreviews *walk.CheckBox
 	viewToolsUI
@@ -246,93 +249,54 @@ func (m *manager) create() error {
 			}},
 			Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{PushButton{Text: "ZKas", OnClicked: func() { m.mainTabs.SetCurrentIndex(0); m.overviewTabs.SetCurrentIndex(0) }}, PushButton{Text: "Kaspa", OnClicked: func() { m.mainTabs.SetCurrentIndex(0); m.overviewTabs.SetCurrentIndex(1) }}, PushButton{Text: "Mining", OnClicked: func() { m.mainTabs.SetCurrentIndex(2) }}, HSpacer{}}},
 			TabWidget{AssignTo: &m.mainTabs, OnCurrentIndexChanged: m.refreshVisiblePanel, Pages: []TabPage{
-				{Title: "Overview", Layout: VBox{MarginsZero: true}, Children: []Widget{TabWidget{AssignTo: &m.overviewTabs, Pages: []TabPage{{Title: "ZKas", Layout: VBox{MarginsZero: true}, Children: []Widget{
-					ScrollView{Layout: VBox{Spacing: 10}, Children: []Widget{
-						GroupBox{AssignTo: &m.setupSection, Visible: m.cfg.Version == "", Title: "Setup", Layout: VBox{Spacing: 6}, Children: []Widget{
-							PushButton{Text: "Install / setup", Font: Font{Bold: true}, OnClicked: func() {
-								if err := m.mainTabs.SetCurrentIndex(m.mainTabs.Pages().Index(m.settingsPage)); err != nil {
-									walk.MsgBox(m.window, "Open setup", err.Error(), walk.MsgBoxIconError)
-								}
-							}},
-							Label{Text: "Open Settings to install components or review your setup."},
-						}},
-						Label{AssignTo: &m.status, Text: "Checking…", Font: Font{PointSize: 12, Bold: true}},
-						Label{AssignTo: &m.walletStatus, Text: "Wallet backend: checking…"},
-						Label{AssignTo: &m.version},
-						Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
-							PushButton{AssignTo: &m.start, Text: "Start ZKas services", OnClicked: m.startClicked},
-							PushButton{AssignTo: &m.stop, Text: "Stop ZKas services", OnClicked: func() {
-								m.action(func() error { m.setProgress("Waiting for clean shutdown…"); return stopNode(m.root) })
-							}},
-							PushButton{AssignTo: &m.update, Text: "Check node updates", OnClicked: m.checkUpdate},
-						}},
-						Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
-							PushButton{AssignTo: &m.managerUpdate, Text: "Check manager updates", OnClicked: m.checkManagerUpdate},
-							CheckBox{AssignTo: &m.managerPreviews, Text: "Include preview releases", Checked: true, OnCheckedChanged: func() {
-								if m.kaspaManagerPreviews != nil {
-									m.kaspaManagerPreviews.SetChecked(m.managerPreviews.Checked())
-								}
-							}},
-						}},
-						Label{Text: "Local connections", Font: Font{Bold: true}}, Label{AssignTo: &m.endpoints},
-						Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
-							PushButton{Text: "Copy API addresses", OnClicked: func() { m.copyText("API addresses", m.endpointText()) }},
-							PushButton{Text: "Copy wallet API URL", OnClicked: func() {
-								if !m.cfg.EnableWallet {
-									walk.MsgBox(m.window, "Wallet backend disabled", "Enable and install the wallet backend first.", walk.MsgBoxIconInformation)
-									return
-								}
-								m.copyText("Wallet API URL", fmt.Sprintf("http://127.0.0.1:%d", m.cfg.WalletPort))
-							}},
-						}},
-						Label{Text: "Consensus sync and wallet history scans finish separately."},
-						Label{Text: "Closing this window leaves your services running."},
-					}},
-				}}, m.kaspaOverviewTab()}}}},
+				{Title: "Overview", Layout: VBox{MarginsZero: true}, Children: []Widget{TabWidget{AssignTo: &m.overviewTabs, Pages: []TabPage{m.zkasOverviewTab(), m.kaspaOverviewTab()}}}},
 				m.allWalletTab(),
 				m.allMiningTab(),
 				m.allSharingTab(),
-				{AssignTo: &m.settingsPage, Title: "Settings", Layout: VBox{MarginsZero: true}, Children: []Widget{TabWidget{Pages: []TabPage{{Title: "ZKas", Layout: VBox{MarginsZero: true}, Children: []Widget{
+				{AssignTo: &m.settingsPage, Title: "Settings", Layout: VBox{MarginsZero: true}, Children: []Widget{TabWidget{AssignTo: &m.settingsTabs, Pages: []TabPage{{Title: "ZKas", Layout: VBox{MarginsZero: true}, Children: []Widget{
 					ScrollView{Layout: VBox{Spacing: 8}, Children: []Widget{
 						Label{Text: "Install and configure", Font: Font{PointSize: 12, Bold: true}},
 						Label{Text: "The defaults suit most users. Review the options below, then install."},
-						PushButton{AssignTo: &m.install, Text: "Install / repair components", OnClicked: m.installAction},
+						Label{Text: "Stop services before changing settings."},
+						GroupBox{Title: "Node settings", Layout: VBox{Spacing: 6}, Children: []Widget{
+							Label{Text: "Blockchain data folder"},
+							Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
+								LineEdit{AssignTo: &m.data, Text: m.cfg.DataDir, MinSize: Size{Width: 220}},
+								PushButton{AssignTo: &m.browse, Text: "Browse…", OnClicked: func() {
+									d := walk.FileDialog{Title: "Choose blockchain data folder", FilePath: m.data.Text()}
+									if ok, _ := d.ShowBrowseFolder(m.window); ok {
+										m.data.SetText(d.FilePath)
+									}
+								}},
+							}},
+							Label{Text: "Storage mode"},
+							ComboBox{AssignTo: &m.mode, Model: []string{"Wallet / application backend (recommended)", "Basic pruned node (no old wallet history)", "Archive (requires an empty folder)"}, CurrentIndex: modeIndex(m.cfg.Mode)},
+							Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
+								Label{Text: "gRPC port"}, NumberEdit{AssignTo: &m.grpc, MinValue: 1024, MaxValue: 65535, Decimals: 0, Value: float64(m.cfg.GRPC)},
+							}},
+							Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
+								CheckBox{AssignTo: &m.enableWS, Text: "JSON wRPC", Checked: m.cfg.EnableWebSocket}, NumberEdit{AssignTo: &m.ws, MinValue: 1024, MaxValue: 65535, Decimals: 0, Value: float64(m.cfg.WebSocket)},
+							}},
+							Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
+								CheckBox{AssignTo: &m.enableWallet, Text: "Wallet REST backend", Checked: m.cfg.EnableWallet}, NumberEdit{AssignTo: &m.walletPort, MinValue: 1024, MaxValue: 65535, Decimals: 0, Value: float64(m.cfg.WalletPort)},
+							}},
+							CheckBox{AssignTo: &m.auto, Text: "Start ZKas services when I sign in", Checked: m.cfg.AutoStart},
+							PushButton{AssignTo: &m.zkasSave, Text: "Save settings", OnClicked: m.saveZKasSettings},
+						}},
+						Label{Text: "Remote access is configured separately in Sharing."},
+						GroupBox{Title: "Components", Layout: VBox{Spacing: 6}, Children: []Widget{
+							PushButton{AssignTo: &m.install, Text: "Install / repair and start…", OnClicked: m.installAction},
+
+							Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
+								PushButton{Text: "Open data", OnClicked: func() { m.open(m.cfg.DataDir) }},
+								PushButton{AssignTo: &m.removeButton, Text: "Uninstall…", OnClicked: m.remove},
+							}},
+						}},
+						m.walletDaemonSettings(),
 						GroupBox{Title: "Wallet maintenance", Layout: VBox{}, Children: []Widget{
 							PushButton{AssignTo: &m.stuckRescanButton, Text: "Rescan stuck wallets…", OnClicked: m.rescanStuckWallets},
 							PushButton{AssignTo: &m.rescanButton, Text: "Rescan all ZKas wallets…", OnClicked: m.rescanZKasWallets},
 							TextLabel{AssignTo: &m.rescanStatus, Text: "Rebuild wallet balances and history from the beginning. Includes bot and application wallets registered on this node.", MinSize: Size{Width: 240}},
-						}},
-						Label{Text: "Stop services before changing settings."},
-						Label{Text: "Blockchain data folder"},
-						Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
-							LineEdit{AssignTo: &m.data, Text: m.cfg.DataDir, MinSize: Size{Width: 220}},
-							PushButton{AssignTo: &m.browse, Text: "Browse…", OnClicked: func() {
-								d := walk.FileDialog{Title: "Choose blockchain data folder", FilePath: m.data.Text()}
-								if ok, _ := d.ShowBrowseFolder(m.window); ok {
-									m.data.SetText(d.FilePath)
-								}
-							}},
-						}},
-						Label{Text: "Storage mode"},
-						ComboBox{AssignTo: &m.mode, Model: []string{"Wallet / application backend (recommended)", "Basic pruned node (no old wallet history)", "Archive (requires an empty folder)"}, CurrentIndex: modeIndex(m.cfg.Mode)},
-						Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
-							Label{Text: "gRPC port"}, NumberEdit{AssignTo: &m.grpc, MinValue: 1024, MaxValue: 65535, Decimals: 0, Value: float64(m.cfg.GRPC)},
-						}},
-						Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
-							CheckBox{AssignTo: &m.enableWS, Text: "JSON wRPC", Checked: m.cfg.EnableWebSocket}, NumberEdit{AssignTo: &m.ws, MinValue: 1024, MaxValue: 65535, Decimals: 0, Value: float64(m.cfg.WebSocket)},
-						}},
-						Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
-							CheckBox{AssignTo: &m.enableWallet, Text: "Wallet REST backend", Checked: m.cfg.EnableWallet}, NumberEdit{AssignTo: &m.walletPort, MinValue: 1024, MaxValue: 65535, Decimals: 0, Value: float64(m.cfg.WalletPort)},
-						}},
-						Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
-							Label{Text: "Resident wallets (0 = automatic)"}, NumberEdit{AssignTo: &m.resident, MinValue: 0, MaxValue: 10000, Decimals: 0, Value: float64(m.cfg.ResidentWallets)},
-						}},
-						CheckBox{AssignTo: &m.auto, Text: "Start ZKas services when I sign in", Checked: m.cfg.AutoStart},
-						Label{Text: "Settings save when you install or start. Remote access is configured separately in Sharing."},
-
-						Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
-							PushButton{Text: "Open data", OnClicked: func() { m.open(m.cfg.DataDir) }},
-							PushButton{AssignTo: &m.removeButton, Text: "Uninstall…", OnClicked: m.remove},
 						}},
 					}},
 				}}, m.kaspaSettingsTab()}}}},
@@ -486,6 +450,7 @@ func (m *manager) create() error {
 		return e
 	}
 	preventWheelChanges(m.window.Handle())
+	m.renderSelectedWallet()
 	m.refresh(hostReply{}, fmt.Errorf("initial"), node.NodeInfo{}, nil)
 	return nil
 }
@@ -507,6 +472,7 @@ func (m *manager) readSettings() (node.Config, error) {
 	c.EnableWallet = m.enableWallet.Checked()
 	c.WalletPort = int(m.walletPort.Value())
 	c.ResidentWallets = int(m.resident.Value())
+	c.WalletDaemon = m.readWalletOptions()
 	c.AutoStart = m.auto.Checked()
 	c.Mode = []string{"wallet", "pruned", "archive"}[m.mode.CurrentIndex()]
 	if e := validateData(m.root, c); e != nil {
@@ -581,10 +547,20 @@ func (m *manager) refresh(r hostReply, hostErr error, info node.NodeInfo, rpcErr
 	for _, w := range []walk.Widget{m.data, m.grpc, m.ws, m.enableWS, m.mode, m.auto, m.browse, m.enableWallet, m.walletPort, m.resident} {
 		w.SetEnabled(!m.busy && !active)
 	}
+	m.refreshWalletOptions(active)
 	m.stuckRescanButton.SetEnabled(!m.busy && serviceActive(m.root, "wallet"))
 	m.rescanButton.SetEnabled(!m.busy && serviceActive(m.root, "wallet"))
 	m.install.SetEnabled(!m.busy && !active)
-	m.start.SetEnabled(!m.busy && installed && (!serviceActive(m.root, "node") || m.cfg.EnableWallet && !serviceActive(m.root, "wallet")))
+	if installed {
+		m.install.SetText("Repair components and start…")
+	} else {
+		m.install.SetText("Install components and start…")
+	}
+	needsStart := installed && (!serviceActive(m.root, "node") || m.cfg.EnableWallet && !serviceActive(m.root, "wallet"))
+	m.start.SetVisible(needsStart)
+	m.start.SetEnabled(!m.busy && needsStart)
+	m.stop.SetVisible(active)
+	m.zkasSave.SetEnabled(!m.busy && !active)
 	m.stop.SetEnabled(!m.busy && active)
 	m.update.SetEnabled(!m.busy && installed)
 	m.managerUpdate.SetEnabled(!m.busy)
@@ -599,6 +575,11 @@ func (m *manager) action(work func() error) {
 		return
 	}
 	m.busy = true
+	if m.chainOperation != "" {
+		m.progress.SetText(m.chainOperation + "…")
+	} else {
+		m.progress.SetText("Working…")
+	}
 	m.refresh(hostReply{}, fmt.Errorf("refresh"), node.NodeInfo{}, nil)
 	go func() {
 		e := work()
@@ -619,10 +600,39 @@ func (m *manager) action(work func() error) {
 			}
 			m.chainOperation = ""
 			m.chainCompletion = ""
+			m.refreshWalletControls()
 			m.updateChainControls()
 			m.refreshChains()
 		})
 	}()
+}
+func (m *manager) saveZKasSettings() {
+	if m.busy {
+		return
+	}
+	c, e := m.readSettings()
+	if e != nil {
+		m.walletError(e)
+		return
+	}
+	old := m.cfg
+	m.chainAction("Saving ZKas settings", "ZKas settings saved. Start ZKas in Overview.", func() error {
+		if hostActive(m.root) {
+			return fmt.Errorf("Stop ZKas services before changing settings")
+		}
+		if c.AutoStart && c.Version == "" {
+			return fmt.Errorf("Install ZKas before enabling automatic startup")
+		}
+		if e := setAutoStart(m.root, c.AutoStart); e != nil {
+			return e
+		}
+		if e := node.Save(m.root, c); e != nil {
+			setAutoStart(m.root, old.AutoStart)
+			return e
+		}
+		m.onUI(func() { m.cfg = c })
+		return nil
+	})
 }
 func (m *manager) startClicked() {
 	c, e := m.readSettings()
@@ -634,7 +644,7 @@ func (m *manager) startClicked() {
 		walk.MsgBox(m.window, "Check setup", e.Error(), walk.MsgBoxIconWarning)
 		return
 	}
-	m.action(func() error {
+	m.chainAction("Starting ZKas services", "ZKas services started. Sync continues in Overview.", func() error {
 		if e := node.CheckBinary(c); e != nil {
 			return e
 		}

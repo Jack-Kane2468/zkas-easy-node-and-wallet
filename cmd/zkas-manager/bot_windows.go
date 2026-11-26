@@ -15,6 +15,8 @@ import (
 )
 
 type botUI struct {
+	botUnlockZ, botUnlockK, botLock *walk.PushButton
+	botVaultState                   *walk.Label
 	botSession
 	botTray                                                              *walk.NotifyIcon
 	botExit                                                              bool
@@ -78,14 +80,15 @@ func (m *manager) botTab() TabPage {
 			TextLabel{Text: "Alerts run while the bot is running, including in background mode. Each recipient must first open a private chat with the bot. A block report is not proof of a payout. Intentional manager stops do not trigger stopped-node alerts.", MinSize: Size{Width: 240}},
 		}},
 		Composite{Layout: HBox{}, Children: []Widget{
-			PushButton{Text: "Unlock ZKas for bot…", OnClicked: func() { m.botLocalUnlock("zkas") }},
-			PushButton{Text: "Unlock Kaspa for bot…", OnClicked: func() { m.botLocalUnlock("kaspa") }},
-			PushButton{Text: "Lock bot wallets", OnClicked: func() {
+			PushButton{AssignTo: &m.botUnlockZ, Text: "Unlock ZKas for bot…", OnClicked: func() { m.botLocalUnlock("zkas") }},
+			PushButton{AssignTo: &m.botUnlockK, Text: "Unlock Kaspa for bot…", OnClicked: func() { m.botLocalUnlock("kaspa") }},
+			PushButton{AssignTo: &m.botLock, Text: "Lock bot wallets", OnClicked: func() {
 				if !m.busy {
 					m.botLockSessions()
 				}
 			}},
 		}},
+		Label{AssignTo: &m.botVaultState},
 		m.botExtraSettings(),
 		GroupBox{Title: "FVK-only wallets", Layout: VBox{}, Children: []Widget{
 			ComboBox{AssignTo: &m.botWatchList},
@@ -232,6 +235,8 @@ func (m *manager) botEnableEdit(edit bool) {
 	for _, p := range m.botPermissions {
 		p.SetEnabled(edit)
 	}
+	m.botStart.SetVisible(edit)
+	m.botStop.SetVisible(!edit)
 	m.botStart.SetEnabled(edit)
 	m.botStop.SetEnabled(!edit)
 }
@@ -428,4 +433,24 @@ func (m *manager) botStopClicked() {
 	m.botPairLabel.SetText("Pairing inactive.")
 	m.botState.SetText("Stopped — no Telegram access. Existing node and mining services continue.")
 	m.botMonitorState.SetText("Optional notifications: stopped.")
+}
+
+func (m *manager) refreshBotVaultControls() {
+	if m.botUnlockZ == nil {
+		return
+	}
+	z, k := m.botZVault != nil, m.botKVault != nil
+	m.botUnlockZ.SetVisible(!z)
+	m.botUnlockK.SetVisible(!k)
+	m.botLock.SetVisible(z || k)
+	m.botUnlockZ.SetEnabled(!m.busy)
+	m.botUnlockK.SetEnabled(!m.busy)
+	m.botLock.SetEnabled(!m.busy)
+	state := func(open bool) string {
+		if open {
+			return "unlocked"
+		}
+		return "locked"
+	}
+	m.botVaultState.SetText("Telegram vaults: ZKas " + state(z) + " · Kaspa " + state(k) + ". Desktop vaults are separate.")
 }

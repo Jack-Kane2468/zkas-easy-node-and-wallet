@@ -176,6 +176,9 @@ func startNode(root string, c node.Config) error {
 	if e := node.CheckBinary(c); e != nil {
 		return e
 	}
+	if e := checkWalletOptionSupport(c); e != nil {
+		return e
+	}
 	if e := ensurePeerFirewall(root, c); e != nil {
 		return e
 	}
@@ -385,6 +388,9 @@ func runHost(root, kind string) (result error) {
 	if kind == "wallet" {
 		if !c.EnableWallet {
 			return errors.New("wallet backend is disabled")
+		}
+		if e := checkWalletOptionSupport(c); e != nil {
+			return e
 		}
 		exe, args = c.WalletExecutable, c.WalletArgs(root)
 	}

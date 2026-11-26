@@ -164,6 +164,8 @@ func (m *manager) refreshKaspaSharing() {
 	if m.kShareDetails.Text() != details {
 		m.kShareDetails.SetText(details)
 	}
+	m.kShareStart.SetVisible(!active)
+	m.kShareStop.SetVisible(active)
 	m.kShareStart.SetEnabled(!m.busy && !active && serviceActive(m.root, "kaspa"))
 	m.kShareStop.SetVisible(active)
 	m.kShareStop.SetEnabled(!m.busy && active)

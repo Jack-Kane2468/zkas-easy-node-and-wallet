@@ -30,6 +30,7 @@ func componentPresent(b chains.Binary) bool {
 	return e == nil && !s.IsDir()
 }
 func (m *manager) updateChainControls() {
+	m.refreshBotVaultControls()
 	if m.kaspaInstall == nil {
 		return
 	}
@@ -41,6 +42,7 @@ func (m *manager) updateChainControls() {
 	m.kaspaNodeUpdate.SetEnabled(idle && installed)
 	m.kaspaManagerUpdate.SetEnabled(idle)
 	m.kaspaManagerPreviews.SetEnabled(idle)
+	m.kaspaSetup.SetVisible(!installed)
 	m.kaspaInstall.SetVisible(!installed)
 	m.kaspaInstall.SetEnabled(idle && !active)
 	m.kaspaStart.SetVisible(installed && !active)
@@ -48,6 +50,11 @@ func (m *manager) updateChainControls() {
 	m.kaspaStop.SetVisible(active)
 	m.kaspaStop.SetEnabled(idle && active)
 	m.kaspaRepair.SetVisible(true)
+	if installed {
+		m.kaspaRepair.SetText("Repair components and start…")
+	} else {
+		m.kaspaRepair.SetText("Install components and start…")
+	}
 	m.kaspaRepair.SetEnabled(idle && !active && !mining)
 	m.kaspaRemove.SetVisible(c.Kaspa.Path != "")
 	m.kaspaRemove.SetEnabled(idle)
@@ -77,7 +84,7 @@ func (m *manager) updateChainControls() {
 		active := serviceActive(m.root, "kaspa") || serviceActive(m.root, "dual") || serviceActive(kaspaAccessRoot(m.root), "sharing")
 		m.kaspaSave.SetEnabled(!m.busy && !active)
 		m.kaspaRAM.SetEnabled(!m.busy && !active)
-		for _, w := range []walk.Widget{m.kMode, m.kData, m.kGRPC, m.kJSON, m.kBorsh, m.kP2P, m.kAuto} {
+		for _, w := range []walk.Widget{m.kBrowse, m.kMode, m.kData, m.kGRPC, m.kJSON, m.kBorsh, m.kP2P, m.kAuto} {
 			w.SetEnabled(!m.busy && !active)
 		}
 	}

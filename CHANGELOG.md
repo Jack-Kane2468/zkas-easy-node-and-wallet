@@ -1,3 +1,42 @@
+# ZKas Node Manager 0.9.33-preview
+
+- Add Settings → ZKas → Wallet service · disk space and performance.
+- Explain disk-space reduction, RAM use, CPU use, and each control’s purpose and tradeoffs directly in the interface; no prior conversation is needed.
+- Add opt-in compact-nullifier and shared-leaf-storage checkboxes. Existing configurations retain their previous daemon behavior. Explain checkpoint conversion and backup compatibility before enabling shared leaf storage.
+- Add advanced hard resident-wallet and memory limits, scan/load concurrency, proving thread/concurrency limits, idle RAM eviction, normal/catch-up checkpoint intervals, and scan prefetch depth. Zero preserves upstream defaults. Retain the existing soft resident limit.
+- Save all settings in the manager configuration; apply on the next daemon start, including automatic service startup. Disable edits while ZKas services are running.
+- Check the installed, hash-verified daemon's --help output for selected optional flags before startup, with a ten-second timeout and a clear update/disable-options error for unsupported flags. Also expose a manual compatibility check.
+- Add a read-only wallet disk-usage inventory with active scan, retired checkpoint, and other/shared-store totals; list up to 1,000 retired copies with sizes and modification times. Provide a shortcut to the wallet data folder. No file cleanup is automatic.
+- Preserve no-custodial operation, loopback binding, wallet token handling, and existing manager/TG session separation.
+
+See WALLETD-STORAGE.md for usage and compatibility. Windows executable rebuilt from this source. Native Windows UI/lifecycle testing remains required.
+
+# ZKas Node Manager 0.9.33-preview
+
+- Add Settings → ZKas → Wallet daemon · storage and resources.
+- Add opt-in compact-nullifier and shared-leaf-storage checkboxes. Existing configurations retain their previous daemon behavior. Explain checkpoint conversion and backup compatibility before enabling shared leaf storage.
+- Add advanced hard resident-wallet and memory limits, scan/load concurrency, proving thread/concurrency limits, idle RAM eviction, normal/catch-up checkpoint intervals, and scan prefetch depth. Zero preserves upstream defaults. Retain the existing soft resident limit.
+- Save all settings in the manager configuration; apply on the next daemon start, including automatic service startup. Disable edits while ZKas services are running.
+- Check the installed, hash-verified daemon's --help output for selected optional flags before startup, with a ten-second timeout and a clear update/disable-options error for unsupported flags. Also expose a manual compatibility check.
+- Add a read-only wallet disk-usage inventory with active scan, retired checkpoint, and other/shared-store totals; list up to 1,000 retired copies with sizes and modification times. Provide a shortcut to the wallet data folder. No file cleanup is automatic.
+- Preserve no-custodial operation, loopback binding, wallet token handling, and existing manager/TG session separation.
+
+See WALLETD-STORAGE.md for usage and compatibility. Windows executable rebuilt from this source. Native Windows UI/lifecycle testing remains required.
+
+# ZKas Node Manager 0.9.32-preview
+
+- Keep the existing native, low-distraction appearance; make actions reflect current state.
+- Share one Overview layout for ZKas and Kaspa: node status/setup, start/stop, updates, and local connections. Setup opens the correct chain's settings. Refresh checks node status with progress feedback.
+- Put both Settings pages in the same order: data folder, storage mode, ports, resources, startup, Save settings, components, then chain-specific maintenance. Add an explicit ZKas Save settings action. Disable the Kaspa folder picker with the other settings while services are active.
+- Kaspa installation now validates and uses the displayed settings, preserves installed component selections, and starts the node. Both install/repair buttons describe their start behavior and distinguish a new install from repair.
+- Show Set up vault, Unlock vault, or Lock vault as appropriate on both wallet pages. Hide wallet content while locked and wallet details until a usable wallet is selected/open.
+- ZKas signed-out wallets show Sign back in; active wallets show Sign out. View-only wallets do not show spend or spending-secret actions. Wallet actions are disabled during work.
+- Show current Telegram vault lock states separately from desktop states in the manager. Hide redundant bot unlock/lock and start/stop buttons. Sharing start/stop controls follow the same rule for both chains.
+- Display operation progress immediately and refresh wallet controls when work completes.
+- Preserve the v0.9.31 runtime line-ending and Windows lifecycle test-harness fixes.
+
+Validation: portable core tests, Windows-target vet, Windows test compilation, and Windows GUI cross-build passed. Native Windows visual/lifecycle tests and live node/wallet/Telegram flows were not run in this Linux environment. This is a preview build.
+
 # ZKas Node Manager 0.9.31-preview
 
 - Telegram main menu → Notifications (or /notifications) offers independent on/off controls for block, unexpected node-stop, sync/RPC, mining-down, ZKas receipt, Kaspa receipt and daily-summary notifications.

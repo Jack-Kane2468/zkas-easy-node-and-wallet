@@ -1,12 +1,15 @@
-# Validation — v0.9.31-preview
+# Validation — v0.9.33-preview
 
-Verified on Linux with Go 1.26.10:
+Executed using Go 1.26.10 on Linux:
 
-- go test ./internal/... passed, including notification category toggles, save-before-apply behavior, save failure, owner authorization, wallet permission checks, invalid schedule/threshold rejection, explicit-state replay and callback sender binding.
+- go test ./internal/... passed.
+- New regression checks cover legacy/default configurations, saved option persistence, launch arguments, retained loopback/no-custodial settings, invalid ranges, unsupported CLI flags, and a non-mutating disk inventory.
 - GOOS=windows GOARCH=amd64 go vet ./... passed.
-- Windows amd64 GUI executable rebuilt with its embedded manifest, CGO disabled and stripped GUI linker flags.
-- Windows-target govulncheck v1.8.0: no vulnerabilities found.
-- Complete source and runnable ZIP integrity and SHA-256 manifests verified.
-- Compared source with v0.9.30: mining tab and bridge-update code are unchanged.
+- Windows manager test executable compiled.
+- Windows amd64 GUI executable rebuilt with embedded manifest and CGO disabled.
+- Nested runnable ZIP and source ZIP checksums and archive integrity verified.
+- Flag spelling/behavior reviewed against the official hash-verified v1.0.14 daemon --help and released upstream source.
 
-Not executed here: native Windows UI/lifecycle tests or live Telegram delivery. The Windows notification persistence/UI integration and monitoring loop were compiled and vetted, but require a live smoke test. No wallet transaction or mining execution was performed.
+Not executed here: native Windows UI/lifecycle tests, real-wallet checkpoint migration, live wallet/node operation, or measured disk/RAM savings. No user wallet files were altered. Run the native GitHub Windows checks and a backed-up local smoke test before publishing as stable.
+
+Manual smoke checks: old config remains opt-out; supported flags start after Save and restart; unsupported daemon produces a clear error; resource controls cannot be changed while services run; disk review does not alter files; advanced panel fits compact mode; TG and desktop wallet flows still operate independently.

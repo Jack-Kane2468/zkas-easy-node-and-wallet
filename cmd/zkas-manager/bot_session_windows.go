@@ -23,6 +23,7 @@ type botSession struct {
 }
 
 func (m *manager) botLockSessions() {
+	defer m.refreshBotVaultControls()
 	m.botZVault = nil
 	m.botZPassword = ""
 	m.botKVault = nil
@@ -179,6 +180,7 @@ func (m *manager) botKSnapshot() error {
 }
 
 func (m *manager) botLocalUnlock(chain string) {
+	defer m.refreshBotVaultControls()
 	if m.busy {
 		return
 	}

@@ -19,6 +19,9 @@ import (
 )
 
 type walletUI struct {
+	walletDetails                                                *walk.Composite
+	walletButtons                                                map[string]**walk.PushButton
+	walletBody                                                   *walk.Composite
 	openedWallets                                                map[string]time.Time
 	checkpointProbe                                              node.CheckpointProbe
 	walletPickerChanging, walletPickerOpen, walletPickerAccepted bool
@@ -39,33 +42,42 @@ func (m *manager) walletTab() TabPage {
 }
 
 func (m *manager) personalWalletPage() TabPage {
-	button := func(text string, fn func()) PushButton { return PushButton{Text: text, OnClicked: fn} }
+	m.walletButtons = map[string]**walk.PushButton{}
+	button := func(text string, fn func()) PushButton {
+		p := new(*walk.PushButton)
+		m.walletButtons[text] = p
+		return PushButton{AssignTo: p, Text: text, OnClicked: fn}
+	}
 	return TabPage{Title: "My wallets", Layout: VBox{MarginsZero: true}, Children: []Widget{ScrollView{Layout: VBox{Spacing: 8}, Children: []Widget{
-		Label{Text: "Your wallets", Font: Font{PointSize: 13, Bold: true}},
+		Label{Text: "ZKas wallets", Font: Font{PointSize: 12, Bold: true}},
 		TextLabel{Text: "Keep several wallets here and choose the one you want to use. Your recovery phrase stays on this PC. The wallet API handles syncing and broadcasting.", MinSize: Size{Width: 240}},
 		Label{AssignTo: &m.walletState, Text: "Wallet vault is locked."},
-		Composite{Layout: HBox{}, Children: []Widget{button("Unlock / set up vault", m.unlockVault), button("Lock all wallets", m.lockVault)}},
-		ComboBox{AssignTo: &m.walletPicker, Model: []string{"Unlock the vault first"}, CurrentIndex: 0, OnCurrentIndexChanged: m.chooseWallet},
-		Composite{Layout: HBox{}, Children: []Widget{button("Create wallet", func() { m.addWallet(false, false) }), button("Import key / phrase", func() { m.addWallet(true, false) }), button("Import FVK (view only)", func() { m.addWallet(true, true) })}},
-		Composite{Layout: HBox{}, Children: []Widget{button("Sign out of this wallet", m.signOutWallet), button("Sign back in", m.signInWallet), button("Remove wallet…", m.removeWallet)}},
-		Label{Text: "Receive", Font: Font{Bold: true}},
-		LineEdit{AssignTo: &m.walletAddress, ReadOnly: true},
-		Composite{Layout: HBox{}, Children: []Widget{button("Copy receive address", func() {
-			if w := m.activeWallet(); w != nil {
-				m.copyText("Receive address", m.walletAddress.Text())
-			}
-		}), button("New receiving address", m.newReceiveAddress)}},
-		button("Show all receiving addresses", m.showReceiveAddresses),
-		TextLabel{Text: "Extra receiving addresses (your canary addresses) all receive into this wallet. They are not separate wallets or theft alarms.", MinSize: Size{Width: 240}},
-		TextLabel{AssignTo: &m.walletBalance, Text: "Unlock and select a wallet to view its balance.", MinSize: Size{Width: 240}},
-		Composite{Layout: HBox{}, Children: []Widget{button("Refresh / sync", m.syncWallet), button("Show history", m.showWalletHistory), button("Send ZKAS…", m.sendWallet)}},
-		Composite{Layout: HBox{}, Children: []Widget{button("Consolidate notes…", m.consolidateWallet), button("Rescan this wallet…", m.rescanSelectedWallet)}},
-		TextEdit{AssignTo: &m.walletHistory, ReadOnly: true, VScroll: true, MinSize: Size{Height: 160}, Text: "Transactions and saved send receipts appear here."},
-		Label{Text: "Backup and viewing keys", Font: Font{Bold: true}},
-		button("Show spending key…", m.showSpendingKey),
-		Composite{Layout: HBox{}, Children: []Widget{button("Show recovery backup…", m.showRecovery), button("Export FVK…", func() { m.exportViewKey(false) }), button("Export OVK…", func() { m.exportViewKey(true) })}},
-		TextLabel{Text: "FVK: view incoming funds and recoverable outgoing history, without spending. OVK: outgoing viewing key; it cannot show your full balance or authorize payments. Use Wallet tools for independent viewing-key scans.", MinSize: Size{Width: 240}},
-		button("Change ZKas vault password…", m.changeZKasVaultPassword),
+		Composite{Layout: HBox{}, Children: []Widget{button("Unlock vault", m.unlockVault), button("Lock vault", m.lockVault)}},
+		Composite{AssignTo: &m.walletBody, Layout: VBox{MarginsZero: true, Spacing: 8}, Children: []Widget{
+			ComboBox{AssignTo: &m.walletPicker, Model: []string{"Unlock the vault first"}, CurrentIndex: 0, OnCurrentIndexChanged: m.chooseWallet},
+			Composite{Layout: HBox{}, Children: []Widget{button("Create wallet", func() { m.addWallet(false, false) }), button("Import key / phrase", func() { m.addWallet(true, false) }), button("Import FVK (view only)", func() { m.addWallet(true, true) })}},
+			Composite{Layout: HBox{}, Children: []Widget{button("Sign out of this wallet", m.signOutWallet), button("Sign back in", m.signInWallet), button("Remove wallet…", m.removeWallet)}},
+			Composite{AssignTo: &m.walletDetails, Layout: VBox{MarginsZero: true, Spacing: 8}, Children: []Widget{
+				Label{Text: "Receive", Font: Font{Bold: true}},
+				LineEdit{AssignTo: &m.walletAddress, ReadOnly: true},
+				Composite{Layout: HBox{}, Children: []Widget{button("Copy receive address", func() {
+					if w := m.activeWallet(); w != nil {
+						m.copyText("Receive address", m.walletAddress.Text())
+					}
+				}), button("New receiving address", m.newReceiveAddress)}},
+				button("Show all receiving addresses", m.showReceiveAddresses),
+				TextLabel{Text: "Extra receiving addresses (your canary addresses) all receive into this wallet. They are not separate wallets or theft alarms.", MinSize: Size{Width: 240}},
+				TextLabel{AssignTo: &m.walletBalance, Text: "Unlock and select a wallet to view its balance.", MinSize: Size{Width: 240}},
+				Composite{Layout: HBox{}, Children: []Widget{button("Refresh / sync", m.syncWallet), button("Show history", m.showWalletHistory), button("Send ZKAS…", m.sendWallet)}},
+				Composite{Layout: HBox{}, Children: []Widget{button("Consolidate notes…", m.consolidateWallet), button("Rescan this wallet…", m.rescanSelectedWallet)}},
+				TextEdit{AssignTo: &m.walletHistory, ReadOnly: true, VScroll: true, MinSize: Size{Height: 160}, Text: "Transactions and saved send receipts appear here."},
+				Label{Text: "Backup and viewing keys", Font: Font{Bold: true}},
+				button("Show spending key…", m.showSpendingKey),
+				Composite{Layout: HBox{}, Children: []Widget{button("Show recovery backup…", m.showRecovery), button("Export FVK…", func() { m.exportViewKey(false) }), button("Export OVK…", func() { m.exportViewKey(true) })}},
+				TextLabel{Text: "FVK: view incoming funds and recoverable outgoing history, without spending. OVK: outgoing viewing key; it cannot show your full balance or authorize payments. Use Wallet tools for independent viewing-key scans.", MinSize: Size{Width: 240}},
+			}},
+			button("Change vault password…", m.changeZKasVaultPassword),
+		}},
 	}}}}
 }
 
@@ -192,7 +204,7 @@ func (m *manager) unlockVault() {
 		m.walletError(fmt.Errorf("Use at least 12 characters and enter the same password twice"))
 		return
 	}
-	m.action(func() error {
+	m.chainAction("Opening ZKas vault", "ZKas vault unlocked. Select, create or import a wallet.", func() error {
 		if e := protectWalletDir(m.root); e != nil {
 			return e
 		}
@@ -220,6 +232,7 @@ func (m *manager) lockVault() {
 	m.vaultPassword = ""
 	m.selectedWallet = ""
 	m.rebuildWalletList()
+	m.progress.SetText("ZKas vault locked in the manager.")
 }
 func (m *manager) rebuildWalletList() {
 	if m.walletPicker == nil {
@@ -272,6 +285,7 @@ func (m *manager) chooseWallet() {
 	m.renderSelectedWallet()
 }
 func (m *manager) renderSelectedWallet() {
+	defer m.refreshWalletControls()
 	if m.walletState == nil {
 		return
 	}
@@ -279,7 +293,11 @@ func (m *manager) renderSelectedWallet() {
 	m.walletBalance.SetText(m.idleWalletMessage())
 	m.walletHistory.SetText("")
 	if m.vault == nil {
-		m.walletState.SetText("Vault locked — unlock it to use your wallets.")
+		if wallet.Exists(m.root) {
+			m.walletState.SetText("Vault locked. Unlock it to use your wallets.")
+		} else {
+			m.walletState.SetText("No vault set up. Create a vault to add your first wallet.")
+		}
 		return
 	}
 	w := m.vault.Find(m.selectedWallet)
@@ -300,11 +318,47 @@ func (m *manager) renderSelectedWallet() {
 	m.walletHistory.SetText(receiptText(w))
 }
 func (m *manager) refreshWalletControls() {
-	if m.walletPicker != nil {
-		enabled := !m.busy && m.vault != nil
-		if m.walletPicker.Enabled() != enabled {
-			m.walletPicker.SetEnabled(enabled)
+	if m.walletPicker == nil {
+		return
+	}
+	unlocked := m.vault != nil
+	var w *wallet.Wallet
+	if unlocked {
+		w = m.vault.Find(m.selectedWallet)
+	}
+	selected := w != nil
+	signedIn := selected && !w.SignedOut
+	spend := signedIn && w.Seed != ""
+	m.walletBody.SetVisible(unlocked)
+	m.walletDetails.SetVisible(signedIn)
+	m.walletPicker.SetEnabled(!m.busy && unlocked && len(m.vault.Wallets) > 0)
+	for key, p := range m.walletButtons {
+		if *p == nil {
+			continue
 		}
+		visible, enabled := unlocked, unlocked
+		switch key {
+		case "Unlock vault":
+			visible, enabled = !unlocked, !unlocked
+			text := "Unlock vault"
+			if !wallet.Exists(m.root) {
+				text = "Set up vault…"
+			}
+			(*p).SetText(text)
+		case "Lock vault", "Create wallet", "Import key / phrase", "Import FVK (view only)", "Change vault password…":
+		case "Sign out of this wallet":
+			visible, enabled = signedIn, signedIn
+		case "Sign back in":
+			visible, enabled = selected && !signedIn, selected && !signedIn
+		case "Remove wallet…":
+			visible, enabled = selected, selected
+		case "Send ZKAS…", "Consolidate notes…", "Show spending key…", "Show recovery backup…":
+			visible, enabled = spend, spend
+		default:
+			visible, enabled = signedIn, signedIn
+		}
+		(*p).SetVisible(visible)
+		(*p).SetEnabled(enabled && !m.busy)
 	}
 }
 func (m *manager) addWallet(importing, viewOnly bool) {
